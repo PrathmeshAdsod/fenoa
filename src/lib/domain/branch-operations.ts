@@ -144,7 +144,11 @@ export function moveEpisode(
       updatedAt: episode.position === index + 1 ? episode.updatedAt : timestamp,
     }),
   );
-  return { branch: nextBranch(branch, now), episodes: updatedEpisodes };
+  const updatedBranch = nextBranch(branch, now);
+  for (const episode of updatedEpisodes) {
+    assertEpisodeConstraints(updatedBranch, episode);
+  }
+  return { branch: updatedBranch, episodes: updatedEpisodes };
 }
 
 export function addBranchCharacter(
@@ -286,5 +290,9 @@ export function deleteEpisode(
             updatedAt: timestamp,
           }),
     );
-  return { branch: nextBranch(branch, now), episodes: remaining, deleted };
+  const updatedBranch = nextBranch(branch, now);
+  for (const episode of remaining) {
+    assertEpisodeConstraints(updatedBranch, episode);
+  }
+  return { branch: updatedBranch, episodes: remaining, deleted };
 }

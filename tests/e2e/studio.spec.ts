@@ -39,6 +39,35 @@ test("human and native WebMCP surfaces share the live branch", async ({
   ).toBeVisible();
   await expect(page.locator(".episode-card")).toHaveCount(7);
 
+  await page.route(
+    "**/api/branches/nightfall-fragments/characters",
+    (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "A branch character with this identifier already exists.",
+            requestId: "form-retention-test",
+            retryable: false,
+          },
+        }),
+      }),
+    { times: 1 },
+  );
+  await page.getByRole("button", { name: "Character", exact: true }).click();
+  await page.getByLabel("Name").fill("Lena");
+  await page.getByLabel("Role in this branch").fill("A duplicate visitor");
+  await page.getByRole("button", { name: "Add only to this branch" }).click();
+  await expect(page.locator(".error-banner")).toContainText(
+    "identifier already exists",
+  );
+  await expect(page.getByLabel("Name")).toHaveValue("Lena");
+  await page.getByRole("button", { name: "Dismiss error" }).click();
+  await page.getByRole("button", { name: "Character", exact: true }).click();
+
   await page.locator(".episode-select").nth(1).click();
   await expect(page.getByLabel("Hook")).toHaveValue(
     "John finds seventeen missing minutes in every camera on Mercer Street.",

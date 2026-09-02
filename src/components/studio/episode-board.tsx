@@ -35,8 +35,8 @@ type EpisodeBoardProps = {
   busy: boolean;
   onSelect(id: string): void;
   onMove(id: string, position: number): Promise<void>;
-  onAdd(input: { title: string; hook: string }): Promise<void>;
-  onDelete(id: string): Promise<void>;
+  onAdd(input: { title: string; hook: string }): Promise<boolean>;
+  onDelete(id: string): Promise<boolean>;
 };
 
 function SortableEpisode({
@@ -151,7 +151,8 @@ export function EpisodeBoard(props: EpisodeBoardProps) {
 
   async function submitEpisode(event: React.FormEvent) {
     event.preventDefault();
-    await props.onAdd({ title, hook });
+    const saved = await props.onAdd({ title, hook });
+    if (!saved) return;
     setTitle("");
     setHook("");
     setAdding(false);
@@ -248,9 +249,9 @@ export function EpisodeBoard(props: EpisodeBoardProps) {
               className="button button-danger"
               disabled={props.busy}
               onClick={() => {
-                void props
-                  .onDelete(pendingDelete)
-                  .then(() => setPendingDelete(null));
+                void props.onDelete(pendingDelete).then((deleted) => {
+                  if (deleted) setPendingDelete(null);
+                });
               }}
             >
               Remove episode

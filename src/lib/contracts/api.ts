@@ -85,13 +85,13 @@ export const addEpisodeInputSchema = z.object({
   position: z.number().int().min(1).max(8),
   title: z.string().trim().min(1).max(80),
   hook: z.string().trim().min(1).max(300),
-  actorType: mutationActorSchema.default("human"),
+  actorType: z.literal("human").default("human"),
 });
 
 export const deleteEpisodeInputSchema = z.object({
   expectedBranchVersion: z.number().int().positive(),
   episodeId: z.string().min(1).max(128),
-  actorType: mutationActorSchema.default("human"),
+  actorType: z.literal("human").default("human"),
 });
 
 export const undoAgentActionInputSchema = z.object({

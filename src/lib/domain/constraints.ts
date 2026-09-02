@@ -12,6 +12,16 @@ function appliesThrough(
   return throughEpisode === undefined || position <= throughEpisode;
 }
 
+function violatesBranchFactLock(
+  branch: BranchDraft,
+  constraint: Extract<StoryConstraint, { type: "branch_fact_lock" }>,
+): boolean {
+  const fact = branch.ruleOverrides.find(
+    (candidate) => candidate.id === constraint.factId,
+  );
+  return !fact || fact.statement !== constraint.statement;
+}
+
 export function findConstraintViolation(
   branch: BranchDraft,
   episode: Episode,
@@ -48,11 +58,7 @@ export function findConstraintViolation(
           )
         );
       case "branch_fact_lock":
-        return branch.ruleOverrides.some(
-          (fact) =>
-            fact.id === constraint.factId &&
-            fact.statement !== constraint.statement,
-        );
+        return violatesBranchFactLock(branch, constraint);
     }
   });
 }
@@ -63,11 +69,7 @@ export function findBranchConstraintViolation(
   return branch.constraints.find(
     (constraint) =>
       constraint.type === "branch_fact_lock" &&
-      branch.ruleOverrides.some(
-        (fact) =>
-          fact.id === constraint.factId &&
-          fact.statement !== constraint.statement,
-      ),
+      violatesBranchFactLock(branch, constraint),
   );
 }
 

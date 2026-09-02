@@ -103,7 +103,7 @@ a {
   transform: translateY(-1px);
 }
 .button:focus-visible,
-.episode-card:focus-visible {
+.episode-select:focus-visible {
   outline: 3px solid rgba(182, 138, 69, 0.42);
   outline-offset: 3px;
 }

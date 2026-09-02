@@ -126,10 +126,12 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     [episodes, selectedId],
   );
   const agentTargetIds = useMemo(() => {
-    const latestAgentActivity = branch?.recentActivity.find(
-      (activity) => activity.actorType !== "human",
+    const latestActivity = branch?.recentActivity[0];
+    return new Set(
+      latestActivity && latestActivity.actorType !== "human"
+        ? latestActivity.targetIds
+        : [],
     );
-    return new Set(latestAgentActivity?.targetIds ?? []);
   }, [branch?.recentActivity]);
 
   async function runMutation<T>(
@@ -179,12 +181,13 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     const previous = episodes;
     const fromIndex = episodes.findIndex((episode) => episode.id === episodeId);
     if (fromIndex < 0 || fromIndex === toPosition - 1) return;
-    setEpisodes(
-      arrayMove(episodes, fromIndex, toPosition - 1).map((episode, index) => ({
+    const optimistic = arrayMove(episodes, fromIndex, toPosition - 1).map(
+      (episode, index) => ({
         ...episode,
         position: index + 1,
-      })),
+      }),
     );
+    setEpisodes(optimistic);
     const result = await runMutation(
       () =>
         domainClient.moveEpisode(branchId, {
@@ -195,61 +198,80 @@ export function RemixStudio({ branchId }: { branchId: string }) {
         }),
       "The episode order could not be saved.",
     );
-    if (!result) setEpisodes(previous);
+    if (!result) {
+      setEpisodes((current) =>
+        current.length === optimistic.length &&
+        current.every(
+          (episode, index) =>
+            episode.id === optimistic[index]?.id &&
+            episode.version === optimistic[index]?.version,
+        )
+          ? previous
+          : current,
+      );
+    }
   }
 
   async function addEpisode(input: { title: string; hook: string }) {
-    if (!branch) return;
-    await runMutation(
-      () =>
-        domainClient.addEpisode(branchId, {
-          expectedBranchVersion: branch.version,
-          position: episodes.length + 1,
-          title: input.title,
-          hook: input.hook,
-          actorType: "human",
-        }),
-      "The episode could not be added.",
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.addEpisode(branchId, {
+            expectedBranchVersion: branch.version,
+            position: episodes.length + 1,
+            title: input.title,
+            hook: input.hook,
+            actorType: "human",
+          }),
+        "The episode could not be added.",
+      ),
     );
   }
 
   async function deleteEpisode(episodeId: string) {
-    if (!branch) return;
-    await runMutation(
-      () =>
-        domainClient.deleteEpisode(branchId, {
-          expectedBranchVersion: branch.version,
-          episodeId,
-          actorType: "human",
-        }),
-      "The episode could not be removed.",
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.deleteEpisode(branchId, {
+            expectedBranchVersion: branch.version,
+            episodeId,
+            actorType: "human",
+          }),
+        "The episode could not be removed.",
+      ),
     );
   }
 
   async function addCharacter(character: Character) {
-    if (!branch) return;
-    await runMutation(
-      () =>
-        domainClient.addBranchCharacter(branchId, {
-          expectedBranchVersion: branch.version,
-          character,
-          actorType: "human",
-        }),
-      "The branch character could not be added.",
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.addBranchCharacter(branchId, {
+            expectedBranchVersion: branch.version,
+            character,
+            actorType: "human",
+          }),
+        "The branch character could not be added.",
+      ),
     );
   }
 
   async function upsertRule(fact: Fact) {
-    if (!branch) return;
-    await runMutation(
-      () =>
-        domainClient.updateBranchRule(branchId, {
-          action: "upsert",
-          expectedBranchVersion: branch.version,
-          fact,
-          actorType: "human",
-        }),
-      "The branch rule could not be saved.",
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.updateBranchRule(branchId, {
+            action: "upsert",
+            expectedBranchVersion: branch.version,
+            fact,
+            actorType: "human",
+          }),
+        "The branch rule could not be saved.",
+      ),
     );
   }
 
@@ -271,15 +293,17 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     action: "add" | "update";
     constraint: StoryConstraint;
   }) {
-    if (!branch) return;
-    await runMutation(
-      () =>
-        domainClient.setConstraint(branchId, {
-          ...input,
-          expectedBranchVersion: branch.version,
-          actorType: "human",
-        }),
-      "The story lock could not be saved.",
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.setConstraint(branchId, {
+            ...input,
+            expectedBranchVersion: branch.version,
+            actorType: "human",
+          }),
+        "The story lock could not be saved.",
+      ),
     );
   }
 

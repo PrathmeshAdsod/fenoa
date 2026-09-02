@@ -30,13 +30,13 @@ type BranchContextProps = {
   branch: BranchDraft;
   agentTargetIds: ReadonlySet<string>;
   busy: boolean;
-  onAddCharacter(character: Character): Promise<void>;
-  onUpsertRule(fact: Fact): Promise<void>;
+  onAddCharacter(character: Character): Promise<boolean>;
+  onUpsertRule(fact: Fact): Promise<boolean>;
   onRemoveRule(factId: string): Promise<void>;
   onSetConstraint(input: {
     action: "add" | "update";
     constraint: StoryConstraint;
-  }): Promise<void>;
+  }): Promise<boolean>;
   onRemoveConstraint(constraintId: string): Promise<void>;
 };
 
@@ -50,7 +50,7 @@ export function BranchContext(props: BranchContextProps) {
     const form = event.currentTarget;
     const data = new FormData(form);
     const name = String(data.get("name") ?? "");
-    await props.onAddCharacter({
+    const saved = await props.onAddCharacter({
       id: identifier(name, "character"),
       name,
       role: String(data.get("role") ?? ""),
@@ -62,6 +62,7 @@ export function BranchContext(props: BranchContextProps) {
       currentSituation: "",
       secret: String(data.get("secret") ?? ""),
     });
+    if (!saved) return;
     form.reset();
     setCharacterOpen(false);
   }
@@ -71,12 +72,13 @@ export function BranchContext(props: BranchContextProps) {
     const form = event.currentTarget;
     const data = new FormData(form);
     const statement = String(data.get("statement") ?? "");
-    await props.onUpsertRule({
+    const saved = await props.onUpsertRule({
       id: identifier(statement, "rule"),
       category: String(data.get("category")) as Fact["category"],
       statement,
       state: String(data.get("state")) as Fact["state"],
     });
+    if (!saved) return;
     form.reset();
     setRuleOpen(false);
   }
@@ -87,10 +89,10 @@ export function BranchContext(props: BranchContextProps) {
     const factId = String(data.get("factId") ?? "");
     const fact = props.branch.ruleOverrides.find((item) => item.id === factId);
     if (!fact) return;
-    await props.onSetConstraint({
+    const saved = await props.onSetConstraint({
       action: "add",
       constraint: {
-        id: `${fact.id}-wording-lock`,
+        id: `${fact.id.slice(0, 115)}-wording-lock`,
         type: "branch_fact_lock",
         label: `Keep: ${fact.statement}`.slice(0, 160),
         description: "Preserve this branch truth while the sequence develops.",
@@ -98,6 +100,7 @@ export function BranchContext(props: BranchContextProps) {
         statement: fact.statement,
       },
     });
+    if (!saved) return;
     setLockOpen(false);
   }
 

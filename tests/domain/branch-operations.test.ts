@@ -156,6 +156,26 @@ describe("branch operations", () => {
     expect(result.episodes.every((item) => item.version === 2)).toBe(true);
   });
 
+  it("rejects a reorder that moves a character before availability", () => {
+    const episodes = Array.from({ length: 7 }, (_, index) => ({
+      ...episode,
+      id: `episode-${index + 1}`,
+      position: index + 1,
+      effects: {
+        ...episode.effects,
+        participantIds: index === 6 ? ["lena"] : ["emma"],
+      },
+    }));
+    expect(() =>
+      moveEpisode(branch, episodes, {
+        episodeId: "episode-7",
+        toPosition: 6,
+        expectedBranchVersion: 1,
+        actorType: "human",
+      }),
+    ).toThrow(/Lena cannot appear/i);
+  });
+
   it("keeps branch characters and rule overrides separate from inheritance", () => {
     const withCharacter = addBranchCharacter(branch, {
       expectedBranchVersion: 1,
@@ -189,6 +209,38 @@ describe("branch operations", () => {
     expect(withRule.inheritedSummary).toBe(branch.inheritedSummary);
   });
 
+  it("does not remove a branch fact protected by a wording lock", () => {
+    const fact = {
+      id: "lena-remembers",
+      category: "secret" as const,
+      statement: "Lena remembers every missing minute.",
+      state: "true" as const,
+    };
+    const locked = {
+      ...branch,
+      ruleOverrides: [fact],
+      constraints: [
+        ...branch.constraints,
+        {
+          id: "lena-remembers-lock",
+          type: "branch_fact_lock" as const,
+          label: "Keep Lena's memory intact",
+          description: "This truth anchors the branch.",
+          factId: fact.id,
+          statement: fact.statement,
+        },
+      ],
+    };
+    expect(() =>
+      updateBranchRule(locked, {
+        action: "remove",
+        expectedBranchVersion: 1,
+        actorType: "human",
+        factId: fact.id,
+      }),
+    ).toThrow(/Keep Lena's memory intact/i);
+  });
+
   it("adds and removes episodes while preserving a contiguous sequence", () => {
     const first = { ...episode, id: "episode-one", position: 1 };
     const added = addEpisode(branch, [first], "episode-two", {
@@ -206,6 +258,46 @@ describe("branch operations", () => {
     });
     expect(removed.episodes).toHaveLength(1);
     expect(removed.episodes[0]?.position).toBe(1);
+  });
+
+  it("rejects a deletion that shifts a character before availability", () => {
+    const episodes = Array.from({ length: 7 }, (_, index) => ({
+      ...episode,
+      id: `episode-${index + 1}`,
+      position: index + 1,
+      effects: {
+        ...episode.effects,
+        participantIds: index === 6 ? ["lena"] : ["emma"],
+      },
+    }));
+    expect(() =>
+      deleteEpisode(branch, episodes, {
+        expectedBranchVersion: 1,
+        actorType: "human",
+        episodeId: "episode-1",
+      }),
+    ).toThrow(/Lena cannot appear/i);
+  });
+
+  it("reserves episode structure changes for the human studio", async () => {
+    const { addEpisodeInputSchema, deleteEpisodeInputSchema } =
+      await import("@/lib/contracts/api");
+    expect(() =>
+      addEpisodeInputSchema.parse({
+        expectedBranchVersion: 1,
+        position: 2,
+        title: "A new episode",
+        hook: "A new clue appears.",
+        actorType: "webmcp_agent",
+      }),
+    ).toThrow();
+    expect(() =>
+      deleteEpisodeInputSchema.parse({
+        expectedBranchVersion: 1,
+        episodeId: "episode-1",
+        actorType: "webmcp_agent",
+      }),
+    ).toThrow();
   });
 
   it("keeps compact branch reads free of narrative", () => {
