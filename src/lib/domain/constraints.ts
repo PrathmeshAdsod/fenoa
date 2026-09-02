@@ -12,6 +12,16 @@ function appliesThrough(
   return throughEpisode === undefined || position <= throughEpisode;
 }
 
+function violatesBranchFactLock(
+  branch: BranchDraft,
+  constraint: Extract<StoryConstraint, { type: "branch_fact_lock" }>,
+): boolean {
+  const fact = branch.ruleOverrides.find(
+    (candidate) => candidate.id === constraint.factId,
+  );
+  return !fact || fact.statement !== constraint.statement;
+}
+
 export function findConstraintViolation(
   branch: BranchDraft,
   episode: Episode,
@@ -48,13 +58,29 @@ export function findConstraintViolation(
           )
         );
       case "branch_fact_lock":
-        return branch.ruleOverrides.some(
-          (fact) =>
-            fact.id === constraint.factId &&
-            fact.statement !== constraint.statement,
-        );
+        return violatesBranchFactLock(branch, constraint);
     }
   });
+}
+
+export function findBranchConstraintViolation(
+  branch: BranchDraft,
+): StoryConstraint | undefined {
+  return branch.constraints.find(
+    (constraint) =>
+      constraint.type === "branch_fact_lock" &&
+      violatesBranchFactLock(branch, constraint),
+  );
+}
+
+export function assertBranchConstraints(branch: BranchDraft): void {
+  const violation = findBranchConstraintViolation(branch);
+  if (violation) {
+    throw new DomainError(
+      "CONSTRAINT_VIOLATION",
+      `This change conflicts with the locked decision: ${violation.label}`,
+    );
+  }
 }
 
 export function assertEpisodeConstraints(

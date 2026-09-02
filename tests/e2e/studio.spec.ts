@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 test("human and native WebMCP surfaces share the live branch", async ({
   page,
 }, testInfo) => {
+  test.setTimeout(75_000);
   test.skip(
     testInfo.project.name === "mobile",
     "The stateful shared-surface scenario runs once on desktop Chromium.",
@@ -38,12 +39,41 @@ test("human and native WebMCP surfaces share the live branch", async ({
   ).toBeVisible();
   await expect(page.locator(".episode-card")).toHaveCount(7);
 
-  await page.locator(".episode-card").nth(1).click();
-  await expect(page.getByLabel("Episode hook")).toHaveValue(
+  await page.route(
+    "**/api/branches/nightfall-fragments/characters",
+    (route) =>
+      route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: false,
+          error: {
+            code: "INVALID_ARGUMENT",
+            message: "A branch character with this identifier already exists.",
+            requestId: "form-retention-test",
+            retryable: false,
+          },
+        }),
+      }),
+    { times: 1 },
+  );
+  await page.getByRole("button", { name: "Character", exact: true }).click();
+  await page.getByLabel("Name").fill("Lena");
+  await page.getByLabel("Role in this branch").fill("A duplicate visitor");
+  await page.getByRole("button", { name: "Add only to this branch" }).click();
+  await expect(page.locator(".error-banner")).toContainText(
+    "identifier already exists",
+  );
+  await expect(page.getByLabel("Name")).toHaveValue("Lena");
+  await page.getByRole("button", { name: "Dismiss error" }).click();
+  await page.getByRole("button", { name: "Character", exact: true }).click();
+
+  await page.locator(".episode-select").nth(1).click();
+  await expect(page.getByLabel("Hook")).toHaveValue(
     "John finds seventeen missing minutes in every camera on Mercer Street.",
   );
-  await page.locator(".episode-card").first().click();
-  await expect(page.getByLabel("Episode hook")).toHaveValue(
+  await page.locator(".episode-select").first().click();
+  await expect(page.getByLabel("Hook")).toHaveValue(
     "Emma wakes beside a stopped clock with rain inside her coat.",
   );
 
@@ -57,11 +87,58 @@ test("human and native WebMCP surfaces share the live branch", async ({
     ).sort(),
   );
   expect(registeredNames).toEqual([
+    "add_branch_character",
     "get_branch_state",
     "get_episode",
+    "move_episode",
     "set_story_constraint",
+    "update_branch_rule",
     "update_episode",
   ]);
+
+  const currentBranch = await page.evaluate(async () => {
+    const tools = (
+      window as typeof window & {
+        __fenoaTools: Map<
+          string,
+          {
+            execute(input: Record<string, unknown>): Promise<{
+              content: Array<{ text: string }>;
+            }>;
+          }
+        >;
+      }
+    ).__fenoaTools;
+    const result = await tools.get("get_branch_state")!.execute({});
+    return JSON.parse(result.content[0]!.text) as { branchVersion: number };
+  });
+  await page.evaluate(async (branchVersion) => {
+    const tool = (
+      window as typeof window & {
+        __fenoaTools: Map<
+          string,
+          { execute(input: Record<string, unknown>): Promise<unknown> }
+        >;
+      }
+    ).__fenoaTools.get("update_branch_rule")!;
+    await tool.execute({
+      action: "upsert",
+      expectedBranchVersion: branchVersion,
+      fact: {
+        id: "rain-remembers",
+        category: "tension",
+        statement: "Rain remembers the missing minutes.",
+        state: "unresolved",
+      },
+    });
+  }, currentBranch.branchVersion);
+  await expect(
+    page.getByText("Rain remembers the missing minutes.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo agent action" }).click();
+  await expect(
+    page.getByText("Rain remembers the missing minutes.", { exact: true }),
+  ).toHaveCount(0);
 
   const episode = await page.evaluate(async () => {
     const tool = (
@@ -145,11 +222,11 @@ test("human and native WebMCP surfaces share the live branch", async ({
   });
   expect(violation).toContain("Lena cannot appear before Episode 7");
 
-  await page.locator(".episode-card").first().click();
+  await page.locator(".episode-select").first().click();
   await page
-    .getByLabel("Episode hook")
+    .getByLabel("Hook")
     .fill("Emma wakes with rain folded into the lining of her coat.");
-  await page.getByRole("button", { name: "Save to branch" }).click();
+  await page.getByRole("button", { name: "Save now" }).click();
   await expect(page.locator(".episode-card").first()).toContainText(
     "Emma wakes with rain folded into the lining of her coat.",
   );
@@ -157,4 +234,17 @@ test("human and native WebMCP surfaces share the live branch", async ({
   await expect(page.locator(".episode-card").first()).toContainText(
     "Emma wakes with rain folded into the lining of her coat.",
   );
+
+  await page.getByRole("button", { name: /keep exploring/i }).click();
+  await expect(page.locator(".error-banner")).toContainText(
+    "Creative Partner is not connected yet",
+  );
+
+  await page.goto("/");
+  const remainingTools = await page.evaluate(
+    () =>
+      (window as typeof window & { __fenoaTools: Map<string, unknown> })
+        .__fenoaTools.size,
+  );
+  expect(remainingTools).toBe(0);
 });

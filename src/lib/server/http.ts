@@ -40,7 +40,11 @@ export function toErrorResponse(error: unknown, id: string) {
               ? 409
               : error.code === "RATE_LIMITED"
                 ? 429
-                : 400;
+                : error.code === "PROVIDER_UNAVAILABLE"
+                  ? 503
+                  : error.code === "INTERNAL"
+                    ? 500
+                    : 400;
     return NextResponse.json<ApiResult<never>>(
       {
         ok: false,

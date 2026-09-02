@@ -1,31 +1,52 @@
 "use client";
 
+import { arrayMove } from "@dnd-kit/sortable";
 import {
-  collection,
   doc,
+  collection,
   onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
-import { Bot, LockKeyhole, Sparkles, Waypoints } from "lucide-react";
+import { CircleAlert, LoaderCircle, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { BranchContext } from "@/components/studio/branch-context";
+import { CreativePartner } from "@/components/studio/creative-partner";
+import { EpisodeBoard } from "@/components/studio/episode-board";
+import {
+  EpisodeEditor,
+  type EpisodeDraft,
+} from "@/components/studio/episode-editor";
+import { domainClient } from "@/lib/client/domain-client";
+import { clientDb, firebaseConfigured } from "@/lib/client/firebase";
+import type {
+  CreativeTurnRequest,
+  CreativeSession,
+} from "@/lib/contracts/creative";
 import {
   branchDraftSchema,
   episodeSchema,
   type BranchDraft,
+  type Character,
   type Episode,
+  type Fact,
+  type StoryConstraint,
 } from "@/lib/contracts/domain";
-import { clientDb, firebaseConfigured } from "@/lib/client/firebase";
-import { domainClient } from "@/lib/client/domain-client";
 import { registerStudioTools } from "@/lib/webmcp/register-studio-tools";
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
 
 export function RemixStudio({ branchId }: { branchId: string }) {
   const [branch, setBranch] = useState<BranchDraft | null>(null);
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [session, setSession] = useState<CreativeSession | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const branchReady = branch !== null;
 
   useEffect(() => {
@@ -34,8 +55,10 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     const stopBranch = onSnapshot(
       doc(db, "branchDrafts", branchId),
       (snapshot) => {
-        if (!snapshot.exists())
-          return setError("This branch could not be found.");
+        if (!snapshot.exists()) {
+          setError("This branch could not be found.");
+          return;
+        }
         const parsed = branchDraftSchema.safeParse({
           id: snapshot.id,
           ...snapshot.data(),
@@ -58,7 +81,11 @@ export function RemixStudio({ branchId }: { branchId: string }) {
           .filter((result) => result.success)
           .map((result) => result.data);
         setEpisodes(parsed);
-        setSelectedId((current) => current ?? parsed[0]?.id ?? null);
+        setSelectedId((current) =>
+          current && parsed.some((episode) => episode.id === current)
+            ? current
+            : (parsed[0]?.id ?? null),
+        );
       },
       () => setError("Episode access is unavailable for this account."),
     );
@@ -70,6 +97,26 @@ export function RemixStudio({ branchId }: { branchId: string }) {
 
   useEffect(() => {
     if (!branchReady) return;
+    const controller = new AbortController();
+    setSessionLoading(true);
+    domainClient
+      .getCreativeSession(branchId, controller.signal)
+      .then(setSession)
+      .catch((caught) => {
+        if (!controller.signal.aborted) {
+          setError(
+            errorMessage(caught, "The creative session could not be restored."),
+          );
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setSessionLoading(false);
+      });
+    return () => controller.abort();
+  }, [branchId, branchReady]);
+
+  useEffect(() => {
+    if (!branchReady) return;
     const controller = registerStudioTools(branchId);
     return () => controller.abort();
   }, [branchId, branchReady]);
@@ -78,26 +125,220 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     () => episodes.find((episode) => episode.id === selectedId) ?? null,
     [episodes, selectedId],
   );
+  const agentTargetIds = useMemo(() => {
+    const latestActivity = branch?.recentActivity[0];
+    return new Set(
+      latestActivity && latestActivity.actorType !== "human"
+        ? latestActivity.targetIds
+        : [],
+    );
+  }, [branch?.recentActivity]);
 
-  async function saveHook(formData: FormData) {
-    if (!selected) return;
-    setSaving(true);
+  async function runMutation<T>(
+    operation: () => Promise<T>,
+    fallback: string,
+    rethrow = false,
+  ): Promise<T | undefined> {
+    setBusy(true);
     setError(null);
     try {
-      await domainClient.updateEpisode(branchId, selected.id, {
-        expectedEpisodeVersion: selected.version,
-        actorType: "human",
-        patch: { hook: String(formData.get("hook") ?? "") },
-      });
+      return await operation();
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "The edit could not be saved.",
-      );
+      setError(errorMessage(caught, fallback));
+      if (rethrow) throw caught;
+      return undefined;
     } finally {
-      setSaving(false);
+      setBusy(false);
     }
+  }
+
+  async function saveEpisode(episode: Episode, draft: EpisodeDraft) {
+    const keyBeats = draft.keyBeats
+      .split("\n")
+      .map((beat) => beat.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    await runMutation(
+      () =>
+        domainClient.updateEpisode(branchId, episode.id, {
+          expectedEpisodeVersion: episode.version,
+          actorType: "human",
+          patch: {
+            title: draft.title,
+            hook: draft.hook,
+            keyBeats,
+            narrative: draft.narrative,
+            effects: episode.effects,
+          },
+        }),
+      "The episode could not be saved.",
+      true,
+    );
+  }
+
+  async function moveEpisode(episodeId: string, toPosition: number) {
+    if (!branch) return;
+    const previous = episodes;
+    const fromIndex = episodes.findIndex((episode) => episode.id === episodeId);
+    if (fromIndex < 0 || fromIndex === toPosition - 1) return;
+    const optimistic = arrayMove(episodes, fromIndex, toPosition - 1).map(
+      (episode, index) => ({
+        ...episode,
+        position: index + 1,
+      }),
+    );
+    setEpisodes(optimistic);
+    const result = await runMutation(
+      () =>
+        domainClient.moveEpisode(branchId, {
+          episodeId,
+          toPosition,
+          expectedBranchVersion: branch.version,
+          actorType: "human",
+        }),
+      "The episode order could not be saved.",
+    );
+    if (!result) {
+      setEpisodes((current) =>
+        current.length === optimistic.length &&
+        current.every(
+          (episode, index) =>
+            episode.id === optimistic[index]?.id &&
+            episode.version === optimistic[index]?.version,
+        )
+          ? previous
+          : current,
+      );
+    }
+  }
+
+  async function addEpisode(input: { title: string; hook: string }) {
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.addEpisode(branchId, {
+            expectedBranchVersion: branch.version,
+            position: episodes.length + 1,
+            title: input.title,
+            hook: input.hook,
+            actorType: "human",
+          }),
+        "The episode could not be added.",
+      ),
+    );
+  }
+
+  async function deleteEpisode(episodeId: string) {
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.deleteEpisode(branchId, {
+            expectedBranchVersion: branch.version,
+            episodeId,
+            actorType: "human",
+          }),
+        "The episode could not be removed.",
+      ),
+    );
+  }
+
+  async function addCharacter(character: Character) {
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.addBranchCharacter(branchId, {
+            expectedBranchVersion: branch.version,
+            character,
+            actorType: "human",
+          }),
+        "The branch character could not be added.",
+      ),
+    );
+  }
+
+  async function upsertRule(fact: Fact) {
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.updateBranchRule(branchId, {
+            action: "upsert",
+            expectedBranchVersion: branch.version,
+            fact,
+            actorType: "human",
+          }),
+        "The branch rule could not be saved.",
+      ),
+    );
+  }
+
+  async function removeRule(factId: string) {
+    if (!branch) return;
+    await runMutation(
+      () =>
+        domainClient.updateBranchRule(branchId, {
+          action: "remove",
+          expectedBranchVersion: branch.version,
+          factId,
+          actorType: "human",
+        }),
+      "The branch rule could not be removed.",
+    );
+  }
+
+  async function setConstraint(input: {
+    action: "add" | "update";
+    constraint: StoryConstraint;
+  }) {
+    if (!branch) return false;
+    return Boolean(
+      await runMutation(
+        () =>
+          domainClient.setConstraint(branchId, {
+            ...input,
+            expectedBranchVersion: branch.version,
+            actorType: "human",
+          }),
+        "The story lock could not be saved.",
+      ),
+    );
+  }
+
+  async function removeConstraint(constraintId: string) {
+    if (!branch) return;
+    await runMutation(
+      () =>
+        domainClient.setConstraint(branchId, {
+          action: "remove",
+          expectedBranchVersion: branch.version,
+          constraintId,
+          actorType: "human",
+        }),
+      "The story lock could not be removed.",
+    );
+  }
+
+  async function creativeTurn(request: CreativeTurnRequest) {
+    const result = await runMutation(
+      () => domainClient.runCreativeTurn(branchId, request),
+      "Creative Partner could not complete this turn.",
+    );
+    if (result) setSession(result.session);
+  }
+
+  async function undoAgentAction() {
+    if (!branch?.lastAgentAction) return;
+    await runMutation(
+      () =>
+        domainClient.undoAgentAction(branchId, {
+          activityId: branch.lastAgentAction!.id,
+          expectedBranchVersion: branch.version,
+        }),
+      "The agent action can no longer be safely undone.",
+    );
   }
 
   if (!firebaseConfigured) {
@@ -106,9 +347,8 @@ export function RemixStudio({ branchId }: { branchId: string }) {
         <p className="eyebrow">Studio setup</p>
         <h1>Connect Firebase to open the living branch.</h1>
         <p>
-          The production UI is ready for its scoped branch and episode
-          listeners. No fixture state is substituted while configuration is
-          absent.
+          Fenoa does not substitute fixture state when its real persistence is
+          unavailable.
         </p>
       </main>
     );
@@ -123,12 +363,21 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     );
   }
 
+  if (!branch) {
+    return (
+      <main className="studio-loading" aria-live="polite">
+        <LoaderCircle size={24} aria-hidden="true" /> Opening the live branch…
+      </main>
+    );
+  }
+
   return (
     <main className="studio-shell">
       <header className="studio-heading">
         <div>
-          <p className="eyebrow">Remix Studio · live branch</p>
-          <h1>{branch?.title ?? "Opening branch…"}</h1>
+          <p className="eyebrow">Remix Studio · {branch.rootWorldId}</p>
+          <h1>{branch.title}</h1>
+          <p>{branch.creativeIntent}</p>
         </div>
         <span className="live-indicator">
           <span /> Firestore live
@@ -137,114 +386,54 @@ export function RemixStudio({ branchId }: { branchId: string }) {
 
       {error ? (
         <div className="error-banner" role="alert">
-          {error}
+          <CircleAlert size={17} aria-hidden="true" />
+          <span>{error}</span>
+          <button aria-label="Dismiss error" onClick={() => setError(null)}>
+            <X size={15} aria-hidden="true" />
+          </button>
         </div>
       ) : null}
 
       <div className="studio-grid">
-        <section className="branch-board" aria-labelledby="branch-board-title">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">The artifact</p>
-              <h2 id="branch-board-title">Branch Board</h2>
-            </div>
-            <span>{episodes.length} episodes</span>
-          </div>
-          <div className="episode-sequence">
-            {episodes.map((episode) => (
-              <button
-                key={episode.id}
-                className={`episode-card ${selectedId === episode.id ? "selected" : ""}`}
-                onClick={() => setSelectedId(episode.id)}
-              >
-                <span className="episode-number">
-                  {String(episode.position).padStart(2, "0")}
-                </span>
-                <span className="episode-copy">
-                  <strong>{episode.title}</strong>
-                  <small>{episode.hook}</small>
-                </span>
-                {branch?.recentActivity[0]?.summary.includes(episode.title) ? (
-                  <span className="agent-mark">
-                    <Sparkles size={12} /> Agent changed
-                  </span>
-                ) : null}
-              </button>
-            ))}
-          </div>
+        <div className="artifact-column">
+          <EpisodeBoard
+            episodes={episodes}
+            selectedId={selectedId}
+            agentTargetIds={agentTargetIds}
+            busy={busy}
+            onSelect={setSelectedId}
+            onMove={moveEpisode}
+            onAdd={addEpisode}
+            onDelete={deleteEpisode}
+          />
           {selected ? (
-            <form
-              key={`${selected.id}:${selected.version}`}
-              action={saveHook}
-              className="episode-editor"
-            >
-              <label htmlFor="hook">Episode hook</label>
-              <textarea
-                id="hook"
-                name="hook"
-                defaultValue={selected.hook}
-                maxLength={300}
-              />
-              <button className="button button-primary" disabled={saving}>
-                {saving ? "Saving…" : "Save to branch"}
-              </button>
-            </form>
+            <EpisodeEditor
+              key={selected.id}
+              episode={selected}
+              onSave={saveEpisode}
+            />
           ) : null}
-        </section>
+        </div>
 
         <aside className="studio-rail">
-          <section className="partner-panel">
-            <div className="panel-icon">
-              <Bot size={18} />
-            </div>
-            <p className="eyebrow">Creative Partner</p>
-            <h2>Shape the next meaningful choice.</h2>
-            <p>
-              {branch?.creativeIntent ??
-                "Reading the branch’s creative intent…"}
-            </p>
-            <button className="suggestion-card" type="button">
-              <strong>Challenge the reveal</strong>
-              <span>What gets more interesting if Emma stays in the dark?</span>
-            </button>
-            <div className="partner-actions">
-              <button className="button button-primary" type="button">
-                Build now
-              </button>
-              <button className="button button-quiet" type="button">
-                Keep exploring
-              </button>
-            </div>
-          </section>
-
-          <section className="context-panel">
-            <p className="eyebrow">Branch Context</p>
-            <div className="context-group inherited">
-              <Waypoints size={16} />
-              <div>
-                <strong>Inherited</strong>
-                <p>{branch?.inheritedSummary ?? "Loading…"}</p>
-              </div>
-            </div>
-            <div className="context-group changed">
-              <Sparkles size={16} />
-              <div>
-                <strong>Changed here</strong>
-                <p>{branch?.ruleOverrides.length ?? 0} rule overrides</p>
-              </div>
-            </div>
-            <div className="context-group locked">
-              <LockKeyhole size={16} />
-              <div>
-                <strong>Locked decisions</strong>
-                <ul>
-                  {branch?.constraints.map((item) => (
-                    <li key={item.id}>{item.label}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </section>
+          <CreativePartner
+            branch={branch}
+            session={session}
+            busy={busy}
+            loading={sessionLoading}
+            onTurn={creativeTurn}
+            onUndo={undoAgentAction}
+          />
+          <BranchContext
+            branch={branch}
+            agentTargetIds={agentTargetIds}
+            busy={busy}
+            onAddCharacter={addCharacter}
+            onUpsertRule={upsertRule}
+            onRemoveRule={removeRule}
+            onSetConstraint={setConstraint}
+            onRemoveConstraint={removeConstraint}
+          />
         </aside>
       </div>
     </main>
