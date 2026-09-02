@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(resourceData) {
+      return signedIn() && resourceData.creatorId == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /worldDrafts/{worldId} {
+      allow read: if owns(resource.data);
+      allow write: if false;
+    }
+
+    match /worlds/{worldId} {
+      allow read: if resource.data.visibility == 'published';
+      allow write: if false;
+
+      match /revisions/{revisionId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    match /branchDrafts/{branchId} {
+      allow read: if owns(resource.data);
+      allow write: if false;
+
+      match /episodes/{episodeId} {
+        allow read: if signedIn() &&
+          get(/databases/$(database)/documents/branchDrafts/$(branchId)).data.creatorId == request.auth.uid;
+        allow write: if false;
+      }
+
+      match /activities/{activityId} {
+        allow read: if signedIn() &&
+          get(/databases/$(database)/documents/branchDrafts/$(branchId)).data.creatorId == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    match /branches/{branchId} {
+      allow read: if resource.data.visibility == 'published';
+      allow write: if false;
+
+      match /revisions/{revisionId} {
+        allow read: if true;
+        allow write: if false;
+      }
+    }
+
+    match /likes/{likeId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /creativeSessions/{sessionId} {
+      allow read: if signedIn() && resource.data.creatorId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if false;
+    }
+
+    match /usageBuckets/{bucketId} {
+      allow read, write: if false;
+    }
+  }
+}

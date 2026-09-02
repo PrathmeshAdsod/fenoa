@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+
+# Next.js and build output
+.next/
+out/
+dist/
+build/
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# Firebase local state
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+
+# Environment and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+
+# Local editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.tsbuildinfo
+
+# Temporary media and traces
+*.webm
+*.mp4
+*.trace
+tmp/
+temp/
