@@ -88,9 +88,9 @@ export const storyConstraintSchema = z.discriminatedUnion("type", [
 ]);
 
 export const episodeEffectsSchema = z.object({
-  participantIds: z.array(idSchema).max(20).default([]),
-  revealedFactIds: z.array(idSchema).max(20).default([]),
-  resolvedFactIds: z.array(idSchema).max(20).default([]),
+  participantIds: z.array(idSchema).max(20),
+  revealedFactIds: z.array(idSchema).max(20),
+  resolvedFactIds: z.array(idSchema).max(20),
   relationshipChanges: z
     .array(
       z.object({
@@ -98,12 +98,10 @@ export const episodeEffectsSchema = z.object({
         kind: relationshipSchema.shape.kind,
       }),
     )
-    .max(20)
-    .default([]),
+    .max(20),
   ruleChanges: z
     .array(z.object({ factId: idSchema, state: factSchema.shape.state }))
-    .max(20)
-    .default([]),
+    .max(20),
 });
 
 export const episodeSchema = z.object({

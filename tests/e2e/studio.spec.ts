@@ -13,7 +13,7 @@ test("human and native WebMCP surfaces share the live branch", async ({
     Object.defineProperty(document, "modelContext", {
       configurable: true,
       value: {
-        registerTool(
+        async registerTool(
           tool: { name: string },
           options?: { signal?: AbortSignal },
         ) {
@@ -37,6 +37,15 @@ test("human and native WebMCP surfaces share the live branch", async ({
     page.getByRole("heading", { name: "The Fragments We Keep" }),
   ).toBeVisible();
   await expect(page.locator(".episode-card")).toHaveCount(7);
+
+  await page.locator(".episode-card").nth(1).click();
+  await expect(page.getByLabel("Episode hook")).toHaveValue(
+    "John finds seventeen missing minutes in every camera on Mercer Street.",
+  );
+  await page.locator(".episode-card").first().click();
+  await expect(page.getByLabel("Episode hook")).toHaveValue(
+    "Emma wakes beside a stopped clock with rain inside her coat.",
+  );
 
   const registeredNames = await page.evaluate(() =>
     Array.from(

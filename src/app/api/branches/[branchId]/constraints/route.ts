@@ -1,7 +1,7 @@
 import { setConstraintInputSchema } from "@/lib/contracts/api";
 import { requireUser } from "@/lib/server/auth";
 import { saveConstraintChange } from "@/lib/server/branch-repository";
-import { ok, requestId, toErrorResponse } from "@/lib/server/http";
+import { ok, readJson, requestId, toErrorResponse } from "@/lib/server/http";
 
 export async function POST(
   request: Request,
@@ -12,7 +12,7 @@ export async function POST(
     const [{ uid }, { branchId }, body] = await Promise.all([
       requireUser(),
       context.params,
-      request.json(),
+      readJson(request),
     ]);
     const input = setConstraintInputSchema.parse(body);
     return ok(await saveConstraintChange(branchId, uid, input), id);

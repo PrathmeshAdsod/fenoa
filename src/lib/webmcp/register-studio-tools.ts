@@ -15,6 +15,161 @@ const objectSchema = (
   required: string[] = [],
 ) => ({ type: "object", additionalProperties: false, properties, required });
 
+const idInputSchema = {
+  type: "string",
+  minLength: 1,
+  maxLength: 128,
+  pattern: "^[a-zA-Z0-9_-]+$",
+};
+const relationshipKindInputSchema = {
+  type: "string",
+  enum: [
+    "trust",
+    "loyalty",
+    "rivalry",
+    "protection",
+    "fear",
+    "romance",
+    "family",
+    "deception",
+    "asymmetric_knowledge",
+  ],
+};
+const idArrayInputSchema = {
+  type: "array",
+  maxItems: 20,
+  items: idInputSchema,
+};
+
+export const episodeEffectsInputSchema = objectSchema(
+  {
+    participantIds: idArrayInputSchema,
+    revealedFactIds: idArrayInputSchema,
+    resolvedFactIds: idArrayInputSchema,
+    relationshipChanges: {
+      type: "array",
+      maxItems: 20,
+      items: objectSchema(
+        {
+          relationshipId: idInputSchema,
+          kind: relationshipKindInputSchema,
+        },
+        ["relationshipId", "kind"],
+      ),
+    },
+    ruleChanges: {
+      type: "array",
+      maxItems: 20,
+      items: objectSchema(
+        {
+          factId: idInputSchema,
+          state: { type: "string", enum: ["true", "false", "unresolved"] },
+        },
+        ["factId", "state"],
+      ),
+    },
+  },
+  [
+    "participantIds",
+    "revealedFactIds",
+    "resolvedFactIds",
+    "relationshipChanges",
+    "ruleChanges",
+  ],
+);
+
+const constraintBaseProperties = {
+  id: idInputSchema,
+  label: { type: "string", minLength: 1, maxLength: 160 },
+  description: { type: "string", minLength: 1, maxLength: 400 },
+};
+const constraintBaseRequired = ["id", "type", "label", "description"];
+
+export const storyConstraintInputSchema = {
+  oneOf: [
+    objectSchema(
+      {
+        ...constraintBaseProperties,
+        type: { const: "knowledge_lock" },
+        characterId: idInputSchema,
+        factId: idInputSchema,
+        throughEpisode: { type: "integer", minimum: 1, maximum: 8 },
+      },
+      [...constraintBaseRequired, "characterId", "factId"],
+    ),
+    objectSchema(
+      {
+        ...constraintBaseProperties,
+        type: { const: "character_availability" },
+        characterId: idInputSchema,
+        availableFromEpisode: { type: "integer", minimum: 1, maximum: 8 },
+      },
+      [...constraintBaseRequired, "characterId", "availableFromEpisode"],
+    ),
+    objectSchema(
+      {
+        ...constraintBaseProperties,
+        type: { const: "fact_state_lock" },
+        factId: idInputSchema,
+        requiredState: {
+          type: "string",
+          enum: ["true", "false", "unresolved"],
+        },
+        throughEpisode: { type: "integer", minimum: 1, maximum: 8 },
+      },
+      [...constraintBaseRequired, "factId", "requiredState"],
+    ),
+    objectSchema(
+      {
+        ...constraintBaseProperties,
+        type: { const: "relationship_lock" },
+        relationshipId: idInputSchema,
+        requiredKind: relationshipKindInputSchema,
+        throughEpisode: { type: "integer", minimum: 1, maximum: 8 },
+      },
+      [...constraintBaseRequired, "relationshipId", "requiredKind"],
+    ),
+    objectSchema(
+      {
+        ...constraintBaseProperties,
+        type: { const: "branch_fact_lock" },
+        factId: idInputSchema,
+        statement: { type: "string", minLength: 1, maxLength: 400 },
+      },
+      [...constraintBaseRequired, "factId", "statement"],
+    ),
+  ],
+};
+
+export const setConstraintOperationInputSchema = {
+  oneOf: [
+    objectSchema(
+      {
+        action: { const: "add" },
+        expectedBranchVersion: { type: "integer", minimum: 1 },
+        constraint: storyConstraintInputSchema,
+      },
+      ["action", "expectedBranchVersion", "constraint"],
+    ),
+    objectSchema(
+      {
+        action: { const: "update" },
+        expectedBranchVersion: { type: "integer", minimum: 1 },
+        constraint: storyConstraintInputSchema,
+      },
+      ["action", "expectedBranchVersion", "constraint"],
+    ),
+    objectSchema(
+      {
+        action: { const: "remove" },
+        expectedBranchVersion: { type: "integer", minimum: 1 },
+        constraintId: idInputSchema,
+      },
+      ["action", "expectedBranchVersion", "constraintId"],
+    ),
+  ],
+};
+
 export function registerStudioTools(branchId: string): AbortController {
   const controller = new AbortController();
   const modelContext = document.modelContext;
@@ -39,10 +194,7 @@ export function registerStudioTools(branchId: string): AbortController {
       name: "get_episode",
       description:
         "Read one bounded episode, its declared story effects, relevant branch locks, and its current version before semantically rewriting it.",
-      inputSchema: objectSchema(
-        { episodeId: { type: "string", minLength: 1, maxLength: 128 } },
-        ["episodeId"],
-      ),
+      inputSchema: objectSchema({ episodeId: idInputSchema }, ["episodeId"]),
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       async execute(input, context) {
         const episodeId = String(input.episodeId ?? "");
@@ -69,11 +221,12 @@ export function registerStudioTools(branchId: string): AbortController {
         "Update selected content fields and the complete structured effects of one episode. This does not reorder episodes and requires the version returned by get_episode.",
       inputSchema: objectSchema(
         {
-          episodeId: { type: "string", minLength: 1, maxLength: 128 },
+          episodeId: idInputSchema,
           expectedEpisodeVersion: { type: "integer", minimum: 1 },
           patch: {
             type: "object",
             additionalProperties: false,
+            minProperties: 1,
             properties: {
               title: { type: "string", minLength: 1, maxLength: 80 },
               hook: { type: "string", minLength: 1, maxLength: 300 },
@@ -83,7 +236,7 @@ export function registerStudioTools(branchId: string): AbortController {
                 items: { type: "string", minLength: 1, maxLength: 300 },
               },
               narrative: { type: "string", maxLength: 7000 },
-              effects: { type: "object" },
+              effects: episodeEffectsInputSchema,
             },
           },
         },
@@ -110,15 +263,7 @@ export function registerStudioTools(branchId: string): AbortController {
       name: "set_story_constraint",
       description:
         "Add, update, or remove one typed story lock in the active remix branch. The authoritative domain layer rejects conflicting or stale changes.",
-      inputSchema: objectSchema(
-        {
-          action: { type: "string", enum: ["add", "update", "remove"] },
-          expectedBranchVersion: { type: "integer", minimum: 1 },
-          constraint: { type: "object" },
-          constraintId: { type: "string", minLength: 1, maxLength: 128 },
-        },
-        ["action", "expectedBranchVersion"],
-      ),
+      inputSchema: setConstraintOperationInputSchema,
       async execute(input, context) {
         const parsed = setConstraintInputSchema.parse({
           ...input,
@@ -136,7 +281,19 @@ export function registerStudioTools(branchId: string): AbortController {
   ];
 
   for (const tool of tools) {
-    modelContext.registerTool(tool, { signal: controller.signal });
+    void modelContext
+      .registerTool(tool, { signal: controller.signal })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+        console.error(
+          JSON.stringify({
+            severity: "ERROR",
+            event: "webmcp_tool_registration_failed",
+            tool: tool.name,
+            error: error instanceof Error ? error.message : "Unknown error",
+          }),
+        );
+      });
   }
   return controller;
 }

@@ -19,7 +19,10 @@ export type WebMcpTool = {
 declare global {
   interface Document {
     modelContext?: {
-      registerTool(tool: WebMcpTool, options?: { signal?: AbortSignal }): void;
+      registerTool(
+        tool: WebMcpTool,
+        options?: { signal?: AbortSignal },
+      ): Promise<void>;
     };
   }
 }

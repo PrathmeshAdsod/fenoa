@@ -98,6 +98,16 @@ describe("branch operations", () => {
     ).toThrow(/structured effects/i);
   });
 
+  it("rejects partial effects instead of erasing omitted effect lists", async () => {
+    const { updateEpisodeInputSchema } = await import("@/lib/contracts/api");
+    expect(() =>
+      updateEpisodeInputSchema.parse({
+        expectedEpisodeVersion: 1,
+        patch: { effects: {} },
+      }),
+    ).toThrow();
+  });
+
   it("adds and versions a story constraint", () => {
     const result = setConstraint(
       branch,

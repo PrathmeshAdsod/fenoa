@@ -27,27 +27,30 @@ export async function getBranchState(
 ): Promise<BranchState> {
   const db = adminDb();
   const branchRef = db.collection("branchDrafts").doc(branchId);
-  const [branchSnapshot, episodeSnapshot] = await Promise.all([
-    branchRef.get(),
-    branchRef.collection("episodes").orderBy("position", "asc").limit(8).get(),
-  ]);
+  const episodeQuery = branchRef
+    .collection("episodes")
+    .orderBy("position", "asc")
+    .limit(8);
 
-  if (!branchSnapshot.exists) {
-    throw new DomainError("NOT_FOUND", "This branch does not exist.");
-  }
+  return db.runTransaction(async (transaction) => {
+    const branchSnapshot = await transaction.get(branchRef);
+    if (!branchSnapshot.exists) {
+      throw new DomainError("NOT_FOUND", "This branch does not exist.");
+    }
+    const branch = branchDraftSchema.parse({
+      id: branchSnapshot.id,
+      ...branchSnapshot.data(),
+    });
+    assertOwner(branch.creatorId, uid);
+    const episodeSnapshot = await transaction.get(episodeQuery);
 
-  const branch = branchDraftSchema.parse({
-    id: branchSnapshot.id,
-    ...branchSnapshot.data(),
-  });
-  assertOwner(branch.creatorId, uid);
-
-  return branchStateSchema.parse({
-    branch,
-    episodes: episodeSnapshot.docs.map((document) => ({
-      id: document.id,
-      ...document.data(),
-    })),
+    return branchStateSchema.parse({
+      branch,
+      episodes: episodeSnapshot.docs.map((document) => ({
+        id: document.id,
+        ...document.data(),
+      })),
+    });
   });
 }
 
@@ -56,12 +59,29 @@ export async function getEpisode(
   episodeId: string,
   uid: string,
 ): Promise<Episode> {
-  const state = await getBranchState(branchId, uid);
-  const episode = state.episodes.find((item) => item.id === episodeId);
-  if (!episode) {
-    throw new DomainError("NOT_FOUND", "This episode does not exist.");
-  }
-  return episode;
+  const db = adminDb();
+  const branchRef = db.collection("branchDrafts").doc(branchId);
+  const episodeRef = branchRef.collection("episodes").doc(episodeId);
+  return db.runTransaction(async (transaction) => {
+    const snapshots = await transaction.getAll(branchRef, episodeRef);
+    const branchSnapshot = snapshots[0];
+    const episodeSnapshot = snapshots[1];
+    if (!branchSnapshot?.exists || !episodeSnapshot?.exists) {
+      throw new DomainError(
+        "NOT_FOUND",
+        "The branch or episode does not exist.",
+      );
+    }
+    const branch = branchDraftSchema.parse({
+      id: branchSnapshot.id,
+      ...branchSnapshot.data(),
+    });
+    assertOwner(branch.creatorId, uid);
+    return episodeSchema.parse({
+      id: episodeSnapshot.id,
+      ...episodeSnapshot.data(),
+    });
+  });
 }
 
 export async function saveEpisodeUpdate(

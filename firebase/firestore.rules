@@ -11,8 +11,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /worldDrafts/{worldId} {
@@ -25,7 +24,7 @@ service cloud.firestore {
       allow write: if false;
 
       match /revisions/{revisionId} {
-        allow read: if true;
+        allow read: if get(/databases/$(database)/documents/worlds/$(worldId)).data.visibility == 'published';
         allow write: if false;
       }
     }
@@ -52,7 +51,7 @@ service cloud.firestore {
       allow write: if false;
 
       match /revisions/{revisionId} {
-        allow read: if true;
+        allow read: if get(/databases/$(database)/documents/branches/$(branchId)).data.visibility == 'published';
         allow write: if false;
       }
     }

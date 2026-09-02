@@ -1,7 +1,7 @@
 import { updateEpisodeInputSchema } from "@/lib/contracts/api";
 import { requireUser } from "@/lib/server/auth";
 import { getEpisode, saveEpisodeUpdate } from "@/lib/server/branch-repository";
-import { ok, requestId, toErrorResponse } from "@/lib/server/http";
+import { ok, readJson, requestId, toErrorResponse } from "@/lib/server/http";
 
 type Params = { params: Promise<{ branchId: string; episodeId: string }> };
 
@@ -24,7 +24,7 @@ export async function PATCH(request: Request, context: Params) {
     const [{ uid }, { branchId, episodeId }, body] = await Promise.all([
       requireUser(),
       context.params,
-      request.json(),
+      readJson(request),
     ]);
     const input = updateEpisodeInputSchema.parse(body);
     return ok(await saveEpisodeUpdate(branchId, episodeId, uid, input), id);

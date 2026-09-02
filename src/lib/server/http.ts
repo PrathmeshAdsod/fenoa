@@ -8,6 +8,20 @@ export function requestId(): string {
   return crypto.randomUUID();
 }
 
+export async function readJson(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new DomainError(
+        "INVALID_ARGUMENT",
+        "The request body is not valid JSON.",
+      );
+    }
+    throw error;
+  }
+}
+
 export function ok<T>(data: T, id: string) {
   return NextResponse.json<ApiResult<T>>({ ok: true, data, requestId: id });
 }

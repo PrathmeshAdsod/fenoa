@@ -64,6 +64,24 @@ a {
 .site-header > :last-child {
   justify-self: end;
 }
+.auth-action {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+}
+.auth-error {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(157, 77, 53, 0.28);
+  background: var(--cream);
+  color: var(--rust);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
 
 .button {
   display: inline-flex;

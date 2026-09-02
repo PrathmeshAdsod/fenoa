@@ -173,7 +173,11 @@ export function RemixStudio({ branchId }: { branchId: string }) {
             ))}
           </div>
           {selected ? (
-            <form action={saveHook} className="episode-editor">
+            <form
+              key={`${selected.id}:${selected.version}`}
+              action={saveHook}
+              className="episode-editor"
+            >
               <label htmlFor="hook">Episode hook</label>
               <textarea
                 id="hook"
