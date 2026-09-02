@@ -1,0 +1,50 @@
+{
+  "name": "fenoa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A social creative platform for remixable fictional worlds with native WebMCP.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@11.10.0",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:e2e": "playwright test",
+    "emulators:start": "firebase emulators:start --only auth,firestore",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "seed:nightfall": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/seed-nightfall.ts",
+    "secrets:check": "node scripts/secret-scan.mjs",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:run && pnpm secrets:check && pnpm build"
+  },
+  "dependencies": {
+    "firebase": "12.18.0",
+    "firebase-admin": "14.3.0",
+    "lucide-react": "^0.468.0",
+    "next": "15.5.25",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.5.4"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "15.5.25",
+    "firebase-tools": "15.19.0",
+    "prettier": "^3.6.2",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}
