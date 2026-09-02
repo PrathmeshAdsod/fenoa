@@ -117,6 +117,20 @@ export const episodeSchema = z.object({
   updatedAt: z.string().datetime(),
 });
 
+export const branchActivitySchema = z.object({
+  id: idSchema,
+  actorType: z.enum(["human", "webmcp_agent", "creative_engine"]),
+  summary: z.string().trim().min(1).max(200),
+  targetIds: z.array(idSchema).max(8).default([]),
+  createdAt: z.string().datetime(),
+});
+
+export const agentActionSchema = z.object({
+  id: idSchema,
+  summary: z.string().trim().min(1).max(200),
+  createdAt: z.string().datetime(),
+});
+
 export const branchDraftSchema = z.object({
   id: idSchema,
   creatorId: idSchema,
@@ -130,17 +144,8 @@ export const branchDraftSchema = z.object({
   addedCharacters: z.array(characterSchema).max(12).default([]),
   ruleOverrides: z.array(factSchema).max(20).default([]),
   constraints: z.array(storyConstraintSchema).max(24).default([]),
-  recentActivity: z
-    .array(
-      z.object({
-        id: idSchema,
-        actorType: z.enum(["human", "webmcp_agent", "creative_engine"]),
-        summary: z.string().trim().min(1).max(200),
-        createdAt: z.string().datetime(),
-      }),
-    )
-    .max(5)
-    .default([]),
+  recentActivity: z.array(branchActivitySchema).max(5).default([]),
+  lastAgentAction: agentActionSchema.nullable().default(null),
   version: z.number().int().positive(),
   updatedAt: z.string().datetime(),
 });
@@ -150,9 +155,17 @@ export const branchStateSchema = z.object({
   episodes: z.array(episodeSchema).max(8),
 });
 
+export const episodeContextSchema = z.object({
+  episode: episodeSchema,
+  branchVersion: z.number().int().positive(),
+  relevantConstraints: z.array(storyConstraintSchema).max(24),
+});
+
 export type Character = z.infer<typeof characterSchema>;
 export type Fact = z.infer<typeof factSchema>;
 export type StoryConstraint = z.infer<typeof storyConstraintSchema>;
 export type Episode = z.infer<typeof episodeSchema>;
+export type EpisodeContext = z.infer<typeof episodeContextSchema>;
+export type BranchActivity = z.infer<typeof branchActivitySchema>;
 export type BranchDraft = z.infer<typeof branchDraftSchema>;
 export type BranchState = z.infer<typeof branchStateSchema>;

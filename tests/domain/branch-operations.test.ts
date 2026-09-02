@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import type { BranchDraft, Episode } from "@/lib/contracts/domain";
-import { setConstraint, updateEpisode } from "@/lib/domain/branch-operations";
+import {
+  addBranchCharacter,
+  addEpisode,
+  deleteEpisode,
+  moveEpisode,
+  setConstraint,
+  updateBranchRule,
+  updateEpisode,
+} from "@/lib/domain/branch-operations";
 import { compactBranchState } from "@/lib/domain/branch-state";
 
 const now = "2026-09-02T00:00:00.000Z";
@@ -27,6 +35,7 @@ const branch: BranchDraft = {
     },
   ],
   recentActivity: [],
+  lastAgentAction: null,
   version: 1,
   updatedAt: now,
 };
@@ -128,6 +137,75 @@ describe("branch operations", () => {
     );
     expect(result.version).toBe(2);
     expect(result.constraints).toHaveLength(2);
+  });
+
+  it("reorders episodes as one versioned branch operation", () => {
+    const first = { ...episode, id: "episode-one", position: 1 };
+    const second = { ...episode, id: "episode-two", position: 2 };
+    const result = moveEpisode(branch, [first, second], {
+      episodeId: first.id,
+      toPosition: 2,
+      expectedBranchVersion: 1,
+      actorType: "human",
+    });
+    expect(result.branch.version).toBe(2);
+    expect(result.episodes.map((item) => item.id)).toEqual([
+      "episode-two",
+      "episode-one",
+    ]);
+    expect(result.episodes.every((item) => item.version === 2)).toBe(true);
+  });
+
+  it("keeps branch characters and rule overrides separate from inheritance", () => {
+    const withCharacter = addBranchCharacter(branch, {
+      expectedBranchVersion: 1,
+      actorType: "webmcp_agent",
+      character: {
+        id: "lena",
+        name: "Lena Ward",
+        role: "The woman who remembers",
+        appearance: "",
+        personality: "Watchful",
+        desire: "Tell the truth",
+        fear: "",
+        background: "",
+        currentSituation: "Outside Nightfall",
+        secret: "",
+      },
+    });
+    const withRule = updateBranchRule(withCharacter, {
+      action: "upsert",
+      expectedBranchVersion: 2,
+      actorType: "webmcp_agent",
+      fact: {
+        id: "lena-remembers",
+        category: "secret",
+        statement: "Lena remembers every missing minute.",
+        state: "true",
+      },
+    });
+    expect(withRule.addedCharacters[0]?.name).toBe("Lena Ward");
+    expect(withRule.ruleOverrides[0]?.id).toBe("lena-remembers");
+    expect(withRule.inheritedSummary).toBe(branch.inheritedSummary);
+  });
+
+  it("adds and removes episodes while preserving a contiguous sequence", () => {
+    const first = { ...episode, id: "episode-one", position: 1 };
+    const added = addEpisode(branch, [first], "episode-two", {
+      expectedBranchVersion: 1,
+      actorType: "human",
+      position: 1,
+      title: "Before the Clock",
+      hook: "John hears the city inhale.",
+    });
+    expect(added.episodes.map((item) => item.position)).toEqual([1, 2]);
+    const removed = deleteEpisode(added.branch, added.episodes, {
+      expectedBranchVersion: 2,
+      actorType: "human",
+      episodeId: "episode-two",
+    });
+    expect(removed.episodes).toHaveLength(1);
+    expect(removed.episodes[0]?.position).toBe(1);
   });
 
   it("keeps compact branch reads free of narrative", () => {

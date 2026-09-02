@@ -57,6 +57,30 @@ export function findConstraintViolation(
   });
 }
 
+export function findBranchConstraintViolation(
+  branch: BranchDraft,
+): StoryConstraint | undefined {
+  return branch.constraints.find(
+    (constraint) =>
+      constraint.type === "branch_fact_lock" &&
+      branch.ruleOverrides.some(
+        (fact) =>
+          fact.id === constraint.factId &&
+          fact.statement !== constraint.statement,
+      ),
+  );
+}
+
+export function assertBranchConstraints(branch: BranchDraft): void {
+  const violation = findBranchConstraintViolation(branch);
+  if (violation) {
+    throw new DomainError(
+      "CONSTRAINT_VIOLATION",
+      `This change conflicts with the locked decision: ${violation.label}`,
+    );
+  }
+}
+
 export function assertEpisodeConstraints(
   branch: BranchDraft,
   episode: Episode,

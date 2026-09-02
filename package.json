@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:integration": "node --env-file-if-exists=.env.local ./node_modules/vitest/vitest.mjs run tests/integration",
     "test:e2e": "playwright test",
     "emulators:start": "firebase emulators:start --only auth,firestore",
     "format": "prettier --write .",
@@ -26,10 +27,14 @@
     "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:run && pnpm secrets:check && pnpm build"
   },
   "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
     "firebase": "12.18.0",
     "firebase-admin": "14.3.0",
     "lucide-react": "^0.468.0",
     "next": "15.5.25",
+    "openai": "7.9.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "zod": "4.5.4"

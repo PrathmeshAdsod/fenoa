@@ -1,5 +1,8 @@
 import {
+  addBranchCharacterInputSchema,
+  moveEpisodeInputSchema,
   setConstraintInputSchema,
+  updateBranchRuleInputSchema,
   updateEpisodeInputSchema,
 } from "@/lib/contracts/api";
 import { compactBranchState } from "@/lib/domain/branch-state";
@@ -40,6 +43,41 @@ const idArrayInputSchema = {
   maxItems: 20,
   items: idInputSchema,
 };
+
+export const branchCharacterInputSchema = objectSchema(
+  {
+    id: idInputSchema,
+    name: { type: "string", minLength: 1, maxLength: 80 },
+    role: { type: "string", minLength: 1, maxLength: 120 },
+    appearance: { type: "string", maxLength: 400 },
+    personality: { type: "string", maxLength: 400 },
+    desire: { type: "string", maxLength: 300 },
+    fear: { type: "string", maxLength: 300 },
+    background: { type: "string", maxLength: 600 },
+    currentSituation: { type: "string", maxLength: 400 },
+    secret: { type: "string", maxLength: 400 },
+  },
+  ["id", "name", "role"],
+);
+
+export const factInputSchema = objectSchema(
+  {
+    id: idInputSchema,
+    category: {
+      type: "string",
+      enum: [
+        "world_rule",
+        "secret",
+        "character_knowledge",
+        "history",
+        "tension",
+      ],
+    },
+    statement: { type: "string", minLength: 1, maxLength: 400 },
+    state: { type: "string", enum: ["true", "false", "unresolved"] },
+  },
+  ["id", "category", "statement", "state"],
+);
 
 export const episodeEffectsInputSchema = objectSchema(
   {
@@ -170,6 +208,27 @@ export const setConstraintOperationInputSchema = {
   ],
 };
 
+export const updateBranchRuleOperationInputSchema = {
+  oneOf: [
+    objectSchema(
+      {
+        action: { const: "upsert" },
+        expectedBranchVersion: { type: "integer", minimum: 1 },
+        fact: factInputSchema,
+      },
+      ["action", "expectedBranchVersion", "fact"],
+    ),
+    objectSchema(
+      {
+        action: { const: "remove" },
+        expectedBranchVersion: { type: "integer", minimum: 1 },
+        factId: idInputSchema,
+      },
+      ["action", "expectedBranchVersion", "factId"],
+    ),
+  ],
+};
+
 export function registerStudioTools(branchId: string): AbortController {
   const controller = new AbortController();
   const modelContext = document.modelContext;
@@ -198,21 +257,13 @@ export function registerStudioTools(branchId: string): AbortController {
       annotations: { readOnlyHint: true, untrustedContentHint: true },
       async execute(input, context) {
         const episodeId = String(input.episodeId ?? "");
-        const [episode, state] = await Promise.all([
-          domainClient.getEpisode(
+        return textResult(
+          await domainClient.getEpisode(
             branchId,
             episodeId,
             context?.signal ?? controller.signal,
           ),
-          domainClient.getBranchState(
-            branchId,
-            context?.signal ?? controller.signal,
-          ),
-        ]);
-        return textResult({
-          episode,
-          relevantConstraints: state.branch.constraints,
-        });
+        );
       },
     },
     {
@@ -271,6 +322,76 @@ export function registerStudioTools(branchId: string): AbortController {
         });
         return textResult(
           await domainClient.setConstraint(
+            branchId,
+            parsed,
+            context?.signal ?? controller.signal,
+          ),
+        );
+      },
+    },
+    {
+      name: "move_episode",
+      description:
+        "Move one existing episode to a new position in the active branch. This changes sequence only and requires the current branch version from get_branch_state.",
+      inputSchema: objectSchema(
+        {
+          episodeId: idInputSchema,
+          toPosition: { type: "integer", minimum: 1, maximum: 8 },
+          expectedBranchVersion: { type: "integer", minimum: 1 },
+        },
+        ["episodeId", "toPosition", "expectedBranchVersion"],
+      ),
+      async execute(input, context) {
+        const parsed = moveEpisodeInputSchema.parse({
+          ...input,
+          actorType: "webmcp_agent",
+        });
+        return textResult(
+          await domainClient.moveEpisode(
+            branchId,
+            parsed,
+            context?.signal ?? controller.signal,
+          ),
+        );
+      },
+    },
+    {
+      name: "add_branch_character",
+      description:
+        "Add one branch-only character without changing the inherited world cast. Requires the current branch version from get_branch_state.",
+      inputSchema: objectSchema(
+        {
+          expectedBranchVersion: { type: "integer", minimum: 1 },
+          character: branchCharacterInputSchema,
+        },
+        ["expectedBranchVersion", "character"],
+      ),
+      async execute(input, context) {
+        const parsed = addBranchCharacterInputSchema.parse({
+          ...input,
+          actorType: "webmcp_agent",
+        });
+        return textResult(
+          await domainClient.addBranchCharacter(
+            branchId,
+            parsed,
+            context?.signal ?? controller.signal,
+          ),
+        );
+      },
+    },
+    {
+      name: "update_branch_rule",
+      description:
+        "Upsert or remove one branch-only fact or rule override. This never changes the inherited world and the domain layer enforces locked constraints.",
+      inputSchema: updateBranchRuleOperationInputSchema,
+      async execute(input, context) {
+        const parsed = updateBranchRuleInputSchema.parse({
+          ...input,
+          actorType: "webmcp_agent",
+        });
+        return textResult(
+          await domainClient.updateBranchRule(
             branchId,
             parsed,
             context?.signal ?? controller.signal,

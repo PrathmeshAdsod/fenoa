@@ -95,6 +95,7 @@ const branch = {
     },
   ],
   recentActivity: [],
+  lastAgentAction: null,
   version: 1,
   updatedAt: timestamp,
 };
@@ -139,6 +140,7 @@ const episodeSeeds = [
 
 const batch = db.batch();
 const branchRef = db.collection("branchDrafts").doc(branchId);
+batch.delete(db.collection("creativeSessions").doc(branchId));
 batch.set(branchRef, branch, { merge: false });
 for (const [position, title, hook] of episodeSeeds) {
   const id = `episode-${position}`;

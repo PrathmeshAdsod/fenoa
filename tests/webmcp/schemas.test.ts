@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  branchCharacterInputSchema,
   episodeEffectsInputSchema,
+  factInputSchema,
   setConstraintOperationInputSchema,
   storyConstraintInputSchema,
+  updateBranchRuleOperationInputSchema,
 } from "@/lib/webmcp/register-studio-tools";
 
 describe("native WebMCP schemas", () => {
@@ -27,5 +30,16 @@ describe("native WebMCP schemas", () => {
       "constraintId",
     );
     expect(storyConstraintInputSchema.oneOf).toHaveLength(5);
+  });
+
+  it("keeps the remaining mutation schemas focused and typed", () => {
+    expect(branchCharacterInputSchema.required).toEqual(["id", "name", "role"]);
+    expect(factInputSchema.required).toEqual([
+      "id",
+      "category",
+      "statement",
+      "state",
+    ]);
+    expect(updateBranchRuleOperationInputSchema.oneOf).toHaveLength(2);
   });
 });
