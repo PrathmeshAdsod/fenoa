@@ -26,7 +26,7 @@ export const creativeReadinessSchema = z.object({
   rationale: z.string().trim().min(1).max(280),
 });
 
-const ideaCardSchema = z.object({
+export const creativeIdeaSchema = z.object({
   title: z.string().trim().min(1).max(100),
   detail: z.string().trim().min(1).max(420),
 });
@@ -34,7 +34,7 @@ const ideaCardSchema = z.object({
 const responseBase = {
   message: z.string().trim().min(1).max(900),
   readiness: creativeReadinessSchema,
-  ideas: z.array(ideaCardSchema).max(3),
+  ideas: z.array(creativeIdeaSchema).max(3),
 };
 
 const nullableEpisodePatchSchema = z.object({

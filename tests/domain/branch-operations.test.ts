@@ -22,6 +22,10 @@ const branch: BranchDraft = {
   title: "The Fragments We Keep",
   creativeIntent: "Delay the reveal without losing momentum.",
   inheritedSummary: "Nightfall forgets 2:00–2:17 AM.",
+  inheritedCharacters: [],
+  inheritedRelationships: [],
+  inheritedFacts: [],
+  inheritedConstraints: [],
   addedCharacters: [],
   ruleOverrides: [],
   constraints: [

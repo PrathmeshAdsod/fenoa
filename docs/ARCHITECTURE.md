@@ -10,6 +10,10 @@ WebMCP    ─┘
 Creative Partner -> creative service -> OpenAI Responses -> validated operations
                                            │
                                            └─> the same domain operations -> Firestore
+
+World Canvas -> explicit image request -> Gemini image output -> Cloud Storage
+                                                        │
+                                                        └─> version-checked draft reference
 ```
 
 React components and WebMCP callbacks do not implement independent database mutations. The server derives identity from a verified Firebase session, validates inputs with Zod, enforces ownership and creative constraints, checks optimistic versions, and then performs transactional writes.
@@ -25,6 +29,15 @@ React components and WebMCP callbacks do not implement independent database muta
 7. AI output is untrusted structured input until server validation succeeds.
 8. Publishing remains an explicit human action and is never exposed through WebMCP.
 9. Provider failure is visible; the product never substitutes fixture output for a live result.
+10. Closing remixes on the root world closes both direct remixes and remix-of-remix creation.
+
+## Publication and lineage
+
+Editable worlds and branches live in owner-only draft documents. Publishing writes a new immutable revision and advances a small public projection to that exact revision. Public pages resolve content through the projection, so unpublished draft changes never leak into discovery.
+
+A direct remix records the source world revision and copies its cast, relationships, facts, and creative constraints into inherited state. A remix of a branch records both the root world revision and exact parent branch revision. Parent documents are never edited by child work. Likes use one server-owned identity per user and branch, while Creator Pick can only be changed by the root world creator.
+
+Active creator and remix studios each use a minimal scoped Firestore listener for the artifact being edited. Server routes remain the only mutation path; there is no active-state polling.
 
 ## WebMCP lifecycle
 
@@ -47,3 +60,5 @@ The focused Studio tool set is:
 The Creative Partner is an editorial control beside the Branch Board, not a second chat-shaped product. Every response evaluates readiness and returns structured idea notes. There is no minimum or target session length. `Build now` remains available on every turn until the 12-turn safety cap.
 
 The server sends bounded current branch state and recent collaboration history through the OpenAI Responses API. The model and reasoning effort are configurable; production defaults to `gpt-5.6-terra` with medium reasoning. BUILD responses are parsed into at most four typed operations, checked against optimistic versions and locked story constraints, and committed atomically with their activity and undo snapshot. Quotas and a one-request session lease bound cost and concurrency without introducing polling.
+
+The original creator has an equivalent structured collaborator for the World Canvas. Suggestions and challenges remain advisory. BUILD patches are validated against the same world contract used by manual saves, and publishing always stays a separate human action.

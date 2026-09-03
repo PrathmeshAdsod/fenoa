@@ -141,6 +141,10 @@ export const branchDraftSchema = z.object({
   title: z.string().trim().min(1).max(120),
   creativeIntent: z.string().trim().min(1).max(600),
   inheritedSummary: z.string().trim().max(1600),
+  inheritedCharacters: z.array(characterSchema).max(20).default([]),
+  inheritedRelationships: z.array(relationshipSchema).max(24).default([]),
+  inheritedFacts: z.array(factSchema).max(32).default([]),
+  inheritedConstraints: z.array(storyConstraintSchema).max(24).default([]),
   addedCharacters: z.array(characterSchema).max(12).default([]),
   ruleOverrides: z.array(factSchema).max(20).default([]),
   constraints: z.array(storyConstraintSchema).max(24).default([]),
@@ -162,6 +166,7 @@ export const episodeContextSchema = z.object({
 });
 
 export type Character = z.infer<typeof characterSchema>;
+export type Relationship = z.infer<typeof relationshipSchema>;
 export type Fact = z.infer<typeof factSchema>;
 export type StoryConstraint = z.infer<typeof storyConstraintSchema>;
 export type Episode = z.infer<typeof episodeSchema>;

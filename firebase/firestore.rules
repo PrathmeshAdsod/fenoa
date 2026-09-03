@@ -11,7 +11,8 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read, write: if false;
+      allow read: if true;
+      allow write: if false;
     }
 
     match /worldDrafts/{worldId} {
@@ -57,11 +58,15 @@ service cloud.firestore {
     }
 
     match /likes/{likeId} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
 
     match /creativeSessions/{sessionId} {
+      allow read: if signedIn() && resource.data.creatorId == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /worldCreativeSessions/{sessionId} {
       allow read: if signedIn() && resource.data.creatorId == request.auth.uid;
       allow write: if false;
     }

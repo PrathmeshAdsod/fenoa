@@ -8,7 +8,8 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import {
   clientAuth,
@@ -18,12 +19,43 @@ import {
 
 export function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loginInFlight = useRef(false);
 
   useEffect(() => {
     if (!firebaseConfigured) return;
-    return onAuthStateChanged(clientAuth(), setUser);
+    return onAuthStateChanged(clientAuth(), (nextUser) => {
+      setUser(nextUser);
+      if (!nextUser) {
+        setSessionReady(false);
+        setAuthResolved(true);
+        return;
+      }
+      if (loginInFlight.current) {
+        setAuthResolved(true);
+        return;
+      }
+
+      void (async () => {
+        try {
+          const response = await fetch("/api/auth/session", {
+            cache: "no-store",
+          });
+          if (!response.ok) {
+            await signOut(clientAuth());
+            return;
+          }
+          setSessionReady(true);
+        } catch {
+          await signOut(clientAuth()).catch(() => undefined);
+        } finally {
+          setAuthResolved(true);
+        }
+      })();
+    });
   }, []);
 
   if (!firebaseConfigured) {
@@ -32,7 +64,9 @@ export function AuthButton() {
 
   async function login() {
     setBusy(true);
+    setSessionReady(false);
     setError(null);
+    loginInFlight.current = true;
     let firebaseUser: User | null = null;
     try {
       const csrfResponse = await fetch("/api/auth/csrf");
@@ -56,6 +90,8 @@ export function AuthButton() {
         },
       });
       if (!response.ok) throw new Error("Could not create a secure session.");
+      setUser(result.user);
+      setSessionReady(true);
     } catch (caught) {
       if (firebaseUser) {
         await fetch("/api/auth/session", { method: "DELETE" }).catch(
@@ -67,6 +103,8 @@ export function AuthButton() {
         caught instanceof Error ? caught.message : "Sign-in could not finish.",
       );
     } finally {
+      loginInFlight.current = false;
+      setAuthResolved(true);
       setBusy(false);
     }
   }
@@ -90,15 +128,22 @@ export function AuthButton() {
 
   return (
     <div className="auth-action">
-      {user ? (
-        <button
-          className="button button-quiet"
-          onClick={logout}
-          disabled={busy}
-        >
-          <LogOut size={15} aria-hidden="true" />
-          Sign out
-        </button>
+      {!authResolved ? (
+        <span className="quiet-label">Checking studio…</span>
+      ) : user && sessionReady ? (
+        <div className="signed-in-actions">
+          <Link href={`/u/${user.uid}`} className="profile-link">
+            {user.displayName ?? "My profile"}
+          </Link>
+          <button
+            className="button button-quiet"
+            onClick={logout}
+            disabled={busy}
+            aria-label="Sign out"
+          >
+            <LogOut size={15} aria-hidden="true" />
+          </button>
+        </div>
       ) : (
         <button
           className="button button-primary"

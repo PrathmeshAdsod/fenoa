@@ -1,0 +1,11 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Generated assets are written only by the verified server domain layer.
+    // Published images are served through persisted Firebase download URLs.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

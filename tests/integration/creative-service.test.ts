@@ -61,7 +61,12 @@ const provider: CreativeProvider = {
 
 describeWithEmulator("creative service with Firestore emulator", () => {
   beforeAll(async () => {
-    await adminDb().collection("creativeSessions").doc(branchId).delete();
+    const db = adminDb();
+    const usage = await db.collection("usageBuckets").get();
+    const batch = db.batch();
+    batch.delete(db.collection("creativeSessions").doc(branchId));
+    for (const bucket of usage.docs) batch.delete(bucket.ref);
+    await batch.commit();
   });
 
   it("reserves creative-engine attribution for validated creative builds", async () => {
@@ -75,6 +80,14 @@ describeWithEmulator("creative service with Firestore emulator", () => {
   });
 
   it("persists finite turns, applies BUILD, and supports safe undo", async () => {
+    const originalEpisode = await adminDb()
+      .collection("branchDrafts")
+      .doc(branchId)
+      .collection("episodes")
+      .doc("episode-1")
+      .get();
+    const originalHook = originalEpisode.data()?.hook;
+
     const first = await runCreativeTurn(
       branchId,
       uid,
@@ -109,7 +122,7 @@ describeWithEmulator("creative service with Firestore emulator", () => {
       .collection("episodes")
       .doc("episode-1")
       .get();
-    expect(restored.data()?.hook).toContain("rain inside her coat");
+    expect(restored.data()?.hook).toBe(originalHook);
 
     for (let turn = 2; turn < 12; turn += 1) {
       await runCreativeTurn(

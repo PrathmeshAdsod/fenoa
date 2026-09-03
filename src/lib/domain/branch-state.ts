@@ -13,6 +13,24 @@ export function compactBranchState(state: BranchState) {
       parentBranchRevisionId: state.branch.parentBranchRevisionId,
     },
     inheritedSummary: state.branch.inheritedSummary,
+    inherited: {
+      characters: state.branch.inheritedCharacters.map((character) => ({
+        id: character.id,
+        name: character.name,
+        role: character.role,
+      })),
+      relationships: state.branch.inheritedRelationships.map(
+        (relationship) => ({
+          id: relationship.id,
+          fromCharacterId: relationship.fromCharacterId,
+          toCharacterId: relationship.toCharacterId,
+          kind: relationship.kind,
+          description: relationship.description,
+        }),
+      ),
+      facts: state.branch.inheritedFacts,
+      constraints: state.branch.inheritedConstraints,
+    },
     episodes: state.episodes.map((episode) => ({
       id: episode.id,
       position: episode.position,
@@ -26,6 +44,9 @@ export function compactBranchState(state: BranchState) {
       role: character.role,
     })),
     ruleOverrides: state.branch.ruleOverrides,
-    constraints: state.branch.constraints,
+    constraints: [
+      ...state.branch.inheritedConstraints,
+      ...state.branch.constraints,
+    ],
   };
 }
