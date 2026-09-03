@@ -16,7 +16,12 @@ export function ProfileEditor({ profile }: { profile: PublicProfile }) {
     setBusy(true);
     setStatus(null);
     try {
-      await domainClient.updateProfile({ displayName, bio });
+      const profile = await domainClient.updateProfile({ displayName, bio });
+      window.dispatchEvent(
+        new CustomEvent("fenoa:profile-updated", {
+          detail: { displayName: profile.displayName },
+        }),
+      );
       setStatus("Profile saved.");
     } catch (caught) {
       setStatus(

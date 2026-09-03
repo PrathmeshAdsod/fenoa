@@ -305,8 +305,17 @@ describe("branch operations", () => {
   });
 
   it("keeps compact branch reads free of narrative", () => {
-    const result = compactBranchState({ branch, episodes: [episode] });
+    const inheritedLock = {
+      ...branch.constraints[0]!,
+      id: "inherited-lena-lock",
+    };
+    const result = compactBranchState({
+      branch: { ...branch, inheritedConstraints: [inheritedLock] },
+      episodes: [episode],
+    });
     expect(result.episodes[0]).not.toHaveProperty("narrative");
     expect(JSON.stringify(result)).not.toContain("keyBeats");
+    expect(result.constraints.inheritedLocked).toEqual([inheritedLock]);
+    expect(result.constraints.branchLocal).toEqual(branch.constraints);
   });
 });

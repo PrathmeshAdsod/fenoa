@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { AggregateField } from "firebase-admin/firestore";
 
 import type {
   CreateWorldInput,
@@ -62,8 +63,8 @@ export async function saveProfileFromIdentity(identity: {
     const profile = publicProfileSchema.parse({
       id: identity.uid,
       displayName:
-        identity.displayName?.trim() ||
         previous?.displayName ||
+        identity.displayName?.trim() ||
         "Fenoa creator",
       avatarUrl: identity.avatarUrl || previous?.avatarUrl || null,
       bio: previous?.bio ?? "",
@@ -79,6 +80,11 @@ export async function saveProfileFromIdentity(identity: {
     });
     return profile;
   });
+}
+
+export async function getProfile(uid: string): Promise<PublicProfile> {
+  const snapshot = await adminDb().collection("users").doc(uid).get();
+  return documentData(snapshot, (value) => publicProfileSchema.parse(value));
 }
 
 export async function updateProfile(
@@ -299,7 +305,10 @@ export async function getPublishedWorld(worldId: string) {
         ...creatorSnapshot.data(),
       })
     : null;
-  return { world, revision, branches, creator };
+  const branchCreators = await profilesById(
+    branches.map((branch) => branch.creatorId),
+  );
+  return { world, revision, branches, creator, branchCreators };
 }
 
 function inheritedSummaryFromWorld(
@@ -485,6 +494,9 @@ export async function publishBranch(
     const world = documentData(worldSnapshot, (value) =>
       publishedWorldSchema.parse(value),
     );
+    if (!world.remixEnabled) {
+      throw new DomainError("FORBIDDEN", "This creator has closed remixes.");
+    }
     if (state.branch.version !== expectedBranchVersion) {
       throw new DomainError(
         "STALE_VERSION",
@@ -652,20 +664,20 @@ export async function getPublicProfile(uid: string) {
   const profile = documentData(profileSnapshot, (value) =>
     publicProfileSchema.parse(value),
   );
-  const [worldsSnapshot, branchesSnapshot] = await Promise.all([
-    db
-      .collection("worlds")
-      .where("creatorId", "==", uid)
-      .orderBy("publishedAt", "desc")
-      .limit(20)
-      .get(),
-    db
-      .collection("branches")
-      .where("creatorId", "==", uid)
-      .orderBy("publishedAt", "desc")
-      .limit(20)
-      .get(),
-  ]);
+  const worldsQuery = db.collection("worlds").where("creatorId", "==", uid);
+  const branchesQuery = db.collection("branches").where("creatorId", "==", uid);
+  const [worldsSnapshot, branchesSnapshot, worldTotals, branchTotals] =
+    await Promise.all([
+      worldsQuery.orderBy("publishedAt", "desc").limit(20).get(),
+      branchesQuery.orderBy("publishedAt", "desc").limit(20).get(),
+      worldsQuery.count().get(),
+      branchesQuery
+        .aggregate({
+          count: AggregateField.count(),
+          likes: AggregateField.sum("likeCount"),
+        })
+        .get(),
+    ]);
   return {
     profile,
     worlds: worldsSnapshot.docs.map((snapshot) =>
@@ -674,6 +686,11 @@ export async function getPublicProfile(uid: string) {
     branches: branchesSnapshot.docs.map((snapshot) =>
       publishedBranchSchema.parse({ id: snapshot.id, ...snapshot.data() }),
     ),
+    totals: {
+      worlds: worldTotals.data().count,
+      branches: branchTotals.data().count,
+      likesReceived: branchTotals.data().likes,
+    },
   };
 }
 

@@ -44,9 +44,9 @@ export function compactBranchState(state: BranchState) {
       role: character.role,
     })),
     ruleOverrides: state.branch.ruleOverrides,
-    constraints: [
-      ...state.branch.inheritedConstraints,
-      ...state.branch.constraints,
-    ],
+    constraints: {
+      inheritedLocked: state.branch.inheritedConstraints,
+      branchLocal: state.branch.constraints,
+    },
   };
 }

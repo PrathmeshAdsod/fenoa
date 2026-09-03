@@ -18,6 +18,15 @@ export const imageAssetSchema = z.object({
   generatedAt: z.string().datetime(),
 });
 
+export const storySparkSchema = z
+  .string()
+  .trim()
+  .max(1_200)
+  .refine(
+    (value) => !value || value.split(/\s+/u).filter(Boolean).length <= 150,
+    "Story spark must be 150 words or fewer",
+  );
+
 export const worldArtifactSchema = z
   .object({
     name: z.string().trim().min(2).max(80),
@@ -29,14 +38,7 @@ export const worldArtifactSchema = z
     characters: z.array(characterSchema).max(8),
     relationships: z.array(relationshipSchema).max(16),
     facts: z.array(factSchema).max(16),
-    storySpark: z
-      .string()
-      .trim()
-      .max(1_200)
-      .refine(
-        (value) => !value || value.split(/\s+/u).filter(Boolean).length <= 150,
-        "Story spark must be 150 words or fewer",
-      ),
+    storySpark: storySparkSchema,
   })
   .superRefine((artifact, context) => {
     if (!uniqueIds(artifact.characters)) {

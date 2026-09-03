@@ -32,6 +32,9 @@ test("human and native WebMCP surfaces share the live branch", async ({
   await page.goto("/");
   await page.getByRole("button", { name: "Open local studio" }).click();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await page.context().clearCookies();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
   await page.goto("/studio/nightfall-fragments");
   await expect(

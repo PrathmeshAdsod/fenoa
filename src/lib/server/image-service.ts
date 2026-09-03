@@ -119,21 +119,21 @@ export async function generateWorldCover(
     const extension = contentType === "image/jpeg" ? "jpg" : "png";
     const storagePath = `worlds/${worldId}/covers/${randomUUID()}.${extension}`;
     const file = adminStorage().bucket(bucketName).file(storagePath);
-    await file.save(bytes, {
-      resumable: false,
-      validation: "crc32c",
-      metadata: {
-        contentType,
-        cacheControl: "public,max-age=31536000,immutable",
-      },
-    });
-    const image: ImageAsset = {
-      storagePath,
-      url: await getDownloadURL(file),
-      alt: `${draft.name} world artwork`,
-      generatedAt: new Date().toISOString(),
-    };
     try {
+      await file.save(bytes, {
+        resumable: false,
+        validation: "crc32c",
+        metadata: {
+          contentType,
+          cacheControl: "public,max-age=31536000,immutable",
+        },
+      });
+      const image: ImageAsset = {
+        storagePath,
+        url: await getDownloadURL(file),
+        alt: `${draft.name} world artwork`,
+        generatedAt: new Date().toISOString(),
+      };
       const updated = await saveGeneratedCover(
         worldId,
         uid,

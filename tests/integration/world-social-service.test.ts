@@ -187,6 +187,9 @@ describeWithEmulator("world and social domain with Firestore emulator", () => {
     });
     await publishWorld(draft.id, uid, draft.version);
     await expect(
+      publishBranch(remix.branch.id, uid, remix.branch.version),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
       startRemix(uid, {
         sourceType: "branch",
         sourceId: remix.branch.id,

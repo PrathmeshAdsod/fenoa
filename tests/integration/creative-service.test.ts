@@ -62,10 +62,22 @@ const provider: CreativeProvider = {
 describeWithEmulator("creative service with Firestore emulator", () => {
   beforeAll(async () => {
     const db = adminDb();
-    const usage = await db.collection("usageBuckets").get();
+    const userKey = (await import("node:crypto"))
+      .createHash("sha256")
+      .update(uid)
+      .digest("hex")
+      .slice(0, 24);
+    const now = new Date().toISOString();
+    const hour = now.slice(0, 13).replaceAll("-", "");
+    const day = now.slice(0, 10).replaceAll("-", "");
     const batch = db.batch();
     batch.delete(db.collection("creativeSessions").doc(branchId));
-    for (const bucket of usage.docs) batch.delete(bucket.ref);
+    batch.delete(
+      db.collection("usageBuckets").doc(`user-hour-${userKey}-${hour}`),
+    );
+    batch.delete(
+      db.collection("usageBuckets").doc(`user-day-${userKey}-${day}`),
+    );
     await batch.commit();
   });
 

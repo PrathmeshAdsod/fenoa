@@ -13,7 +13,7 @@ type Props = {
   session: WorldCreativeSession | null;
   loading: boolean;
   busy: boolean;
-  onTurn(request: CreativeTurnRequest): Promise<void>;
+  onTurn(request: CreativeTurnRequest): Promise<boolean>;
 };
 
 const lenses: Array<{ mode: CreativeMode; label: string }> = [
@@ -29,8 +29,8 @@ export function WorldPartner({ session, loading, busy, onTurn }: Props) {
   const capped = (session?.turnCount ?? 0) >= 12;
 
   async function run(mode: CreativeMode, direction = prompt) {
-    await onTurn({ mode, prompt: direction.trim() });
-    if (direction === prompt) setPrompt("");
+    const completed = await onTurn({ mode, prompt: direction.trim() });
+    if (completed && direction === prompt) setPrompt("");
   }
 
   return (

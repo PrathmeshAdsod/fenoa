@@ -12,6 +12,8 @@ const invalidSessionCodes = new Set([
   "auth/invalid-session-cookie-duration",
   "auth/session-cookie-expired",
   "auth/session-cookie-revoked",
+  "auth/user-disabled",
+  "auth/user-not-found",
 ]);
 
 export function isInvalidSessionCookieError(error: unknown): boolean {

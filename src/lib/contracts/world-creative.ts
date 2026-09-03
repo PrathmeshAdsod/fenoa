@@ -12,6 +12,7 @@ import {
   idSchema,
   relationshipSchema,
 } from "@/lib/contracts/domain";
+import { storySparkSchema } from "@/lib/contracts/world";
 
 const nullableWorldPatchSchema = z.object({
   name: z.string().trim().min(2).max(80).nullable(),
@@ -23,7 +24,7 @@ const nullableWorldPatchSchema = z.object({
   characters: z.array(characterSchema).max(8).nullable(),
   relationships: z.array(relationshipSchema).max(16).nullable(),
   facts: z.array(factSchema).max(16).nullable(),
-  storySpark: z.string().trim().max(1_200).nullable(),
+  storySpark: storySparkSchema.nullable(),
 });
 
 const worldResponseBase = {

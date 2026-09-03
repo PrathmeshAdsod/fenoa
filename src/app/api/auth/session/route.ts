@@ -5,7 +5,10 @@ import { adminAuth } from "@/lib/server/firebase-admin";
 import { DomainError } from "@/lib/domain/errors";
 import { requireUser } from "@/lib/server/auth";
 import { ok, requestId, toErrorResponse } from "@/lib/server/http";
-import { saveProfileFromIdentity } from "@/lib/server/world-repository";
+import {
+  getProfile,
+  saveProfileFromIdentity,
+} from "@/lib/server/world-repository";
 
 const SESSION_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -37,7 +40,11 @@ export async function GET() {
   const id = requestId();
   try {
     const user = await requireUser();
-    return ok({ authenticated: true, uid: user.uid }, id);
+    const profile = await getProfile(user.uid);
+    return ok(
+      { authenticated: true, uid: user.uid, displayName: profile.displayName },
+      id,
+    );
   } catch (error) {
     return toErrorResponse(error, id);
   }
@@ -62,12 +69,15 @@ export async function POST(request: Request) {
     const sessionCookie = await adminAuth().createSessionCookie(idToken, {
       expiresIn: SESSION_DURATION_MS,
     });
-    await saveProfileFromIdentity({
+    const profile = await saveProfileFromIdentity({
       uid: identity.uid,
       displayName: identity.name,
       avatarUrl: identity.picture,
     });
-    const response = NextResponse.json({ ok: true, requestId: id });
+    const response = ok(
+      { uid: identity.uid, displayName: profile.displayName },
+      id,
+    );
     response.cookies.set("__session", sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

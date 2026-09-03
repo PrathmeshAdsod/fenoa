@@ -5,6 +5,7 @@ import {
   publishWorldSnapshot,
   updateWorldDraft,
 } from "@/lib/domain/world-operations";
+import { worldCreativeResponseSchema } from "@/lib/contracts/world-creative";
 
 const now = new Date("2026-09-02T08:00:00.000Z");
 
@@ -110,6 +111,29 @@ describe("world operations", () => {
       updateWorldDraft(draft, "creator-one", {
         expectedVersion: 1,
         patch: {
+          storySpark: Array.from({ length: 151 }, () => "word").join(" "),
+        },
+      }),
+    ).toThrow(/150 words/i);
+  });
+
+  it("rejects a creative BUILD patch that exceeds the story-spark word cap", () => {
+    expect(() =>
+      worldCreativeResponseSchema.parse({
+        mode: "BUILD",
+        message: "Build the longer spark.",
+        readiness: { readyToBuild: true, rationale: "The idea is concrete." },
+        ideas: [],
+        patch: {
+          name: null,
+          premise: null,
+          genre: null,
+          tone: null,
+          aesthetic: null,
+          locations: null,
+          characters: null,
+          relationships: null,
+          facts: null,
           storySpark: Array.from({ length: 151 }, () => "word").join(" "),
         },
       }),

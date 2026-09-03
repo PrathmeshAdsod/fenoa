@@ -172,6 +172,7 @@ export default async function WorldPage({
               <div key={branch.id} className="branch-card-wrap">
                 <BranchCard
                   branch={branch}
+                  creator={data.branchCreators.get(branch.creatorId)}
                   creatorPick={data.world.creatorPickBranchId === branch.id}
                 />
                 {isCreator ? (

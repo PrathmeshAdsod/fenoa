@@ -100,4 +100,21 @@ test("creator publishes a real world and a remix-of-remix path", async ({
   await expect(
     page.getByRole("heading", { name: "What this path carries" }),
   ).toBeVisible();
+
+  await page.goto(
+    `/u/${process.env.FENOA_SEED_CREATOR_UID || "playwright-user"}`,
+  );
+  const profileTotals = page.locator(".profile-totals");
+  await expect(profileTotals).toContainText("likes received");
+  const likes = Number(
+    (await profileTotals.getByText(/likes received/).innerText()).match(
+      /\d+/,
+    )?.[0],
+  );
+  expect(likes).toBeGreaterThanOrEqual(1);
+  await page.getByLabel("Display name").fill("Mara Voss Studio");
+  await page.getByRole("button", { name: "Save profile" }).click();
+  await expect(
+    page.getByRole("link", { name: "Mara Voss Studio" }),
+  ).toBeVisible();
 });

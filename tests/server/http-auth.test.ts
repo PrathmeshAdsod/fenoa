@@ -33,6 +33,12 @@ describe("server input and auth error classification", () => {
     expect(
       isInvalidSessionCookieError(authError("auth/session-cookie-expired")),
     ).toBe(true);
+    expect(isInvalidSessionCookieError(authError("auth/user-disabled"))).toBe(
+      true,
+    );
+    expect(isInvalidSessionCookieError(authError("auth/user-not-found"))).toBe(
+      true,
+    );
     expect(isInvalidSessionCookieError(authError("auth/internal-error"))).toBe(
       false,
     );

@@ -24,10 +24,6 @@ export default async function ProfilePage({
     throw error;
   }
   const current = await optionalUser();
-  const likesReceived = data.branches.reduce(
-    (total, branch) => total + branch.likeCount,
-    0,
-  );
   return (
     <main className="profile-page">
       <header className="profile-hero">
@@ -51,15 +47,15 @@ export default async function ProfilePage({
         </div>
         <div className="profile-totals">
           <span>
-            <strong>{data.worlds.length}</strong> worlds
+            <strong>{data.totals.worlds}</strong> worlds
           </span>
           <span>
             <GitBranch size={14} />
-            <strong>{data.branches.length}</strong> remixes
+            <strong>{data.totals.branches}</strong> remixes
           </span>
           <span>
             <Heart size={14} />
-            <strong>{likesReceived}</strong> likes received
+            <strong>{data.totals.likesReceived}</strong> likes received
           </span>
         </div>
       </header>

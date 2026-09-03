@@ -16,9 +16,30 @@ import {
   firebaseConfigured,
   googleProvider,
 } from "@/lib/client/firebase";
+import type { ApiResult } from "@/lib/contracts/api";
+
+type SessionIdentity = { uid: string; displayName: string };
+
+async function createServerSession(user: User): Promise<SessionIdentity> {
+  const csrfResponse = await fetch("/api/auth/csrf");
+  if (!csrfResponse.ok) throw new Error("Could not begin sign-in.");
+  const { token } = (await csrfResponse.json()) as { token: string };
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/auth/session", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+      "X-CSRF-Token": token,
+    },
+  });
+  const result = (await response.json()) as ApiResult<SessionIdentity>;
+  if (!result.ok) throw new Error(result.error.message);
+  return result.data;
+}
 
 export function AuthButton() {
   const [user, setUser] = useState<User | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,9 +48,15 @@ export function AuthButton() {
 
   useEffect(() => {
     if (!firebaseConfigured) return;
-    return onAuthStateChanged(clientAuth(), (nextUser) => {
+    const onProfileUpdated = (event: Event) => {
+      const custom = event as CustomEvent<{ displayName?: string }>;
+      if (custom.detail?.displayName) setProfileName(custom.detail.displayName);
+    };
+    window.addEventListener("fenoa:profile-updated", onProfileUpdated);
+    const unsubscribe = onAuthStateChanged(clientAuth(), (nextUser) => {
       setUser(nextUser);
       if (!nextUser) {
+        setProfileName(null);
         setSessionReady(false);
         setAuthResolved(true);
         return;
@@ -44,18 +71,36 @@ export function AuthButton() {
           const response = await fetch("/api/auth/session", {
             cache: "no-store",
           });
-          if (!response.ok) {
-            await signOut(clientAuth());
-            return;
+          let identity: SessionIdentity;
+          if (response.ok) {
+            const result = (await response.json()) as ApiResult<
+              SessionIdentity & { authenticated: true }
+            >;
+            if (!result.ok) throw new Error(result.error.message);
+            identity = result.data;
+          } else if (response.status === 401) {
+            identity = await createServerSession(nextUser);
+          } else {
+            throw new Error("Could not restore the secure studio session.");
           }
+          setProfileName(identity.displayName);
           setSessionReady(true);
-        } catch {
-          await signOut(clientAuth()).catch(() => undefined);
+        } catch (caught) {
+          setSessionReady(false);
+          setError(
+            caught instanceof Error
+              ? caught.message
+              : "Could not restore the secure studio session.",
+          );
         } finally {
           setAuthResolved(true);
         }
       })();
     });
+    return () => {
+      unsubscribe();
+      window.removeEventListener("fenoa:profile-updated", onProfileUpdated);
+    };
   }, []);
 
   if (!firebaseConfigured) {
@@ -69,9 +114,6 @@ export function AuthButton() {
     loginInFlight.current = true;
     let firebaseUser: User | null = null;
     try {
-      const csrfResponse = await fetch("/api/auth/csrf");
-      if (!csrfResponse.ok) throw new Error("Could not begin sign-in.");
-      const { token } = (await csrfResponse.json()) as { token: string };
       const result =
         process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"
           ? await signInWithEmailAndPassword(
@@ -81,16 +123,9 @@ export function AuthButton() {
             )
           : await signInWithPopup(clientAuth(), googleProvider());
       firebaseUser = result.user;
-      const idToken = await result.user.getIdToken();
-      const response = await fetch("/api/auth/session", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${idToken}`,
-          "X-CSRF-Token": token,
-        },
-      });
-      if (!response.ok) throw new Error("Could not create a secure session.");
+      const identity = await createServerSession(result.user);
       setUser(result.user);
+      setProfileName(identity.displayName);
       setSessionReady(true);
     } catch (caught) {
       if (firebaseUser) {
@@ -133,7 +168,7 @@ export function AuthButton() {
       ) : user && sessionReady ? (
         <div className="signed-in-actions">
           <Link href={`/u/${user.uid}`} className="profile-link">
-            {user.displayName ?? "My profile"}
+            {profileName ?? "My profile"}
           </Link>
           <button
             className="button button-quiet"

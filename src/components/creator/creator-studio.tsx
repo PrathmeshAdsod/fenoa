@@ -13,6 +13,22 @@ import type { CreativeTurnRequest } from "@/lib/contracts/creative";
 import type { WorldCreativeSession } from "@/lib/contracts/world-creative";
 import { worldDraftSchema, type WorldDraft } from "@/lib/contracts/world";
 
+function canvasContentKey(draft: WorldDraft): string {
+  return JSON.stringify({
+    name: draft.name,
+    premise: draft.premise,
+    genre: draft.genre,
+    tone: draft.tone,
+    aesthetic: draft.aesthetic,
+    locations: draft.locations,
+    characters: draft.characters,
+    relationships: draft.relationships,
+    facts: draft.facts,
+    storySpark: draft.storySpark,
+    remixEnabled: draft.remixEnabled,
+  });
+}
+
 export function CreatorStudio({ worldId }: { worldId: string }) {
   const [draft, setDraft] = useState<WorldDraft | null>(null);
   const [session, setSession] = useState<WorldCreativeSession | null>(null);
@@ -86,12 +102,13 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
     );
   }
 
-  async function creativeTurn(input: CreativeTurnRequest) {
+  async function creativeTurn(input: CreativeTurnRequest): Promise<boolean> {
     const result = await run(
       () => domainClient.runWorldCreativeTurn(worldId, input),
       "Creative Partner could not complete this turn.",
     );
     if (result) setSession(result.session);
+    return Boolean(result);
   }
 
   async function generateImage(direction: string) {
@@ -167,7 +184,7 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
       ) : null}
       <div className="creator-studio-grid">
         <WorldCanvas
-          key={draft.version}
+          key={canvasContentKey(draft)}
           draft={draft}
           busy={busy}
           onSave={save}

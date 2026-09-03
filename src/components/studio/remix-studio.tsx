@@ -323,12 +323,13 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     );
   }
 
-  async function creativeTurn(request: CreativeTurnRequest) {
+  async function creativeTurn(request: CreativeTurnRequest): Promise<boolean> {
     const result = await runMutation(
       () => domainClient.runCreativeTurn(branchId, request),
       "Creative Partner could not complete this turn.",
     );
     if (result) setSession(result.session);
+    return Boolean(result);
   }
 
   async function undoAgentAction() {
@@ -433,7 +434,7 @@ export function RemixStudio({ branchId }: { branchId: string }) {
           />
           {selected ? (
             <EpisodeEditor
-              key={selected.id}
+              key={`${selected.id}:${selected.version}`}
               episode={selected}
               onSave={saveEpisode}
             />
