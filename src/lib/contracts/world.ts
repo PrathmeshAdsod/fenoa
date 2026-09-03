@@ -12,8 +12,14 @@ const uniqueIds = <T extends { id: string }>(items: T[]) =>
   new Set(items.map((item) => item.id)).size === items.length;
 
 export const imageAssetSchema = z.object({
-  storagePath: z.string().trim().min(1).max(500),
-  url: z.string().url().max(2_000),
+  storagePath: z.string().trim().min(1).max(500).nullable(),
+  url: z.union([
+    z.string().url().max(2_000),
+    z
+      .string()
+      .max(500)
+      .regex(/^\/images\/[a-z0-9][a-z0-9._/-]*$/iu),
+  ]),
   alt: z.string().trim().min(1).max(180),
   generatedAt: z.string().datetime(),
 });

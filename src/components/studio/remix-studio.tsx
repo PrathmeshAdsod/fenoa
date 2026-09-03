@@ -8,7 +8,14 @@ import {
   orderBy,
   query,
 } from "firebase/firestore";
-import { ArrowUpRight, CircleAlert, LoaderCircle, Send, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  CircleAlert,
+  LoaderCircle,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -393,8 +400,11 @@ export function RemixStudio({ branchId }: { branchId: string }) {
         </div>
         <div className="studio-publish-actions">
           <span className="live-indicator">
-            <span /> Firestore live
+            <span /> Live draft
           </span>
+          <a className="studio-assist-jump" href="#remix-partner">
+            <Sparkles size={14} /> Creative Partner
+          </a>
           {publishedUrl ? (
             <Link className="button button-quiet" href={publishedUrl}>
               View branch <ArrowUpRight size={14} />
@@ -426,6 +436,15 @@ export function RemixStudio({ branchId }: { branchId: string }) {
             episodes={episodes}
             selectedId={selectedId}
             agentTargetIds={agentTargetIds}
+            context={{
+              inheritedCast: branch.inheritedCharacters.length,
+              inheritedTruths: branch.inheritedFacts.length,
+              branchChanges:
+                branch.addedCharacters.length + branch.ruleOverrides.length,
+              lockedDecisions:
+                branch.inheritedConstraints.length + branch.constraints.length,
+              latestAgentChange: branch.lastAgentAction?.summary ?? null,
+            }}
             busy={busy}
             onSelect={setSelectedId}
             onMove={moveEpisode}
@@ -441,7 +460,7 @@ export function RemixStudio({ branchId }: { branchId: string }) {
           ) : null}
         </div>
 
-        <aside className="studio-rail">
+        <aside className="studio-rail" id="remix-partner">
           <CreativePartner
             branch={branch}
             session={session}

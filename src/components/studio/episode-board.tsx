@@ -32,6 +32,13 @@ type EpisodeBoardProps = {
   episodes: Episode[];
   selectedId: string | null;
   agentTargetIds: ReadonlySet<string>;
+  context: {
+    inheritedCast: number;
+    inheritedTruths: number;
+    branchChanges: number;
+    lockedDecisions: number;
+    latestAgentChange: string | null;
+  };
   busy: boolean;
   onSelect(id: string): void;
   onMove(id: string, position: number): Promise<void>;
@@ -177,6 +184,34 @@ export function EpisodeBoard(props: EpisodeBoardProps) {
           </button>
         </div>
       </div>
+
+      <div className="board-context-legend" aria-label="Branch state legend">
+        <span className="inherited">
+          <strong>Inherited</strong>
+          {props.context.inheritedCast} cast · {props.context.inheritedTruths}{" "}
+          truths
+        </span>
+        <span className="changed">
+          <strong>This branch</strong>
+          {props.context.branchChanges
+            ? `${props.context.branchChanges} creative changes`
+            : "No branch-only changes yet"}
+        </span>
+        <span className="locked">
+          <strong>Locked</strong>
+          {props.context.lockedDecisions} protected decisions
+        </span>
+      </div>
+
+      {props.context.latestAgentChange ? (
+        <div className="board-agent-update" aria-live="polite">
+          <Sparkles size={14} aria-hidden="true" />
+          <span>
+            <strong>Creative Partner applied</strong>
+            {props.context.latestAgentChange}
+          </span>
+        </div>
+      ) : null}
 
       {adding ? (
         <form className="inline-create" onSubmit={submitEpisode}>

@@ -4,3 +4,37 @@ runConfig:
   concurrency: 40
   cpu: 1
   memoryMiB: 512
+
+env:
+  - variable: NEXT_PUBLIC_USE_FIREBASE_EMULATORS
+    value: "false"
+    availability:
+      - BUILD
+  - variable: NEXT_PUBLIC_NIGHTFALL_BRANCH_ID
+    value: nightfall-fragments
+    availability:
+      - BUILD
+  - variable: FIREBASE_STORAGE_BUCKET
+    value: fenoa-creative.firebasestorage.app
+    availability:
+      - RUNTIME
+  - variable: OPENAI_CREATIVE_MODEL
+    value: gpt-5.6-terra
+    availability:
+      - RUNTIME
+  - variable: OPENAI_CREATIVE_REASONING
+    value: medium
+    availability:
+      - RUNTIME
+  - variable: GEMINI_IMAGE_MODEL
+    value: gemini-3.1-flash-image
+    availability:
+      - RUNTIME
+  - variable: OPENAI_API_KEY
+    secret: fenoaOpenAiApiKey
+    availability:
+      - RUNTIME
+  - variable: GEMINI_API_KEY
+    secret: fenoaGeminiApiKey
+    availability:
+      - RUNTIME

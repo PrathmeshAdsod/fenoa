@@ -12,6 +12,11 @@ function getAdminApp() {
     process.env.FIRESTORE_EMULATOR_HOST ||
     process.env.FIREBASE_AUTH_EMULATOR_HOST,
   );
+  if (!emulator && !process.env.FIREBASE_PROJECT_ID) {
+    // Firebase App Hosting supplies FIREBASE_CONFIG and application-default
+    // credentials to the Admin SDK. Avoid duplicating that platform config.
+    return initializeApp();
+  }
   return initializeApp({
     ...(emulator ? {} : { credential: applicationDefault() }),
     projectId: process.env.FIREBASE_PROJECT_ID,

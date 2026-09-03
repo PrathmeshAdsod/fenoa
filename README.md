@@ -11,6 +11,12 @@ Fenoa is a social creative platform for publishing fictional worlds and explorin
 - Gemini-generated world key art with explicit creator action and bounded quotas
 - Immutable world and branch revisions, remix-of-remix lineage, likes, profiles, reports, and optional Creator Picks
 
+The repository stays on the maintained Next.js 15 line. Firebase App Hosting
+[currently lists 15.2.x as its active support line](https://firebase.google.com/docs/app-hosting/frameworks-tooling),
+while [current Next.js security releases](https://nextjs.org/blog/august-2026-security-release)
+are issued on 15.5.x. Fenoa therefore pins the latest audited 15.5.x patch rather
+than shipping a framework line that no longer receives current security fixes.
+
 ## Local setup
 
 1. Install Node.js 24 and pnpm 11.
@@ -22,6 +28,10 @@ For the complete local vertical slice, set the emulator variables shown in
 second terminal, and then run `pnpm test:e2e`.
 
 No production secret belongs in an environment file committed to this repository.
+App Hosting receives Firebase's public web configuration from its managed
+`FIREBASE_WEBAPP_CONFIG`; `next.config.ts` maps that configuration into the
+browser bundle without committing the Firebase API key. Provider keys are
+referenced from Secret Manager in `apphosting.yaml`.
 
 ## Verification
 
@@ -30,6 +40,10 @@ pnpm verify
 ```
 
 Integration tests require the Firebase emulators. Browser tests exercise the real session, persistence, publication, remix lineage, social interactions, realtime Studio synchronization, and native WebMCP registration. Provider checks remain separate because mock tests and builds are not evidence of live model behavior.
+
+Firestore rules tests prove that drafts and creative sessions are owner-only,
+unpublished revisions stay private, and direct client writes cannot bypass the
+server domain layer.
 
 ## License
 
