@@ -1,6 +1,6 @@
 "use client";
 
-import { LogIn, LogOut } from "lucide-react";
+import { LogIn, LogOut, Mail, X } from "lucide-react";
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -42,6 +42,9 @@ export function AuthButton() {
   const [profileName, setProfileName] = useState<string | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [sessionReady, setSessionReady] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const loginInFlight = useRef(false);
@@ -107,7 +110,7 @@ export function AuthButton() {
     return <span className="quiet-label">Firebase setup pending</span>;
   }
 
-  async function login() {
+  async function login(method: "local" | "google" | "email") {
     setBusy(true);
     setSessionReady(false);
     setError(null);
@@ -115,18 +118,22 @@ export function AuthButton() {
     let firebaseUser: User | null = null;
     try {
       const result =
-        process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"
+        method === "local"
           ? await signInWithEmailAndPassword(
               clientAuth(),
               "creator@fenoa.local",
               "fenoa-local-password",
             )
-          : await signInWithPopup(clientAuth(), googleProvider());
+          : method === "email"
+            ? await signInWithEmailAndPassword(clientAuth(), email, password)
+            : await signInWithPopup(clientAuth(), googleProvider());
       firebaseUser = result.user;
       const identity = await createServerSession(result.user);
       setUser(result.user);
       setProfileName(identity.displayName);
       setSessionReady(true);
+      setLoginOpen(false);
+      setPassword("");
     } catch (caught) {
       if (firebaseUser) {
         await fetch("/api/auth/session", { method: "DELETE" }).catch(
@@ -180,20 +187,97 @@ export function AuthButton() {
           </button>
         </div>
       ) : (
-        <button
-          className="button button-primary"
-          onClick={login}
-          disabled={busy}
-        >
-          <LogIn size={15} aria-hidden="true" />
-          {busy
-            ? "Opening…"
-            : process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"
-              ? "Open local studio"
-              : "Create with Google"}
-        </button>
+        <>
+          <button
+            className="button button-primary"
+            type="button"
+            onClick={() => {
+              if (process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true") {
+                void login("local");
+              } else {
+                setError(null);
+                setLoginOpen((open) => !open);
+              }
+            }}
+            disabled={busy}
+            aria-expanded={loginOpen}
+          >
+            <LogIn size={15} aria-hidden="true" />
+            {busy
+              ? "Opening…"
+              : process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS === "true"
+                ? "Open local studio"
+                : "Sign in"}
+          </button>
+          {loginOpen &&
+          process.env.NEXT_PUBLIC_USE_FIREBASE_EMULATORS !== "true" ? (
+            <div className="auth-menu" role="dialog" aria-label="Sign in">
+              <div className="auth-menu-heading">
+                <div>
+                  <strong>Enter the studio</strong>
+                  <span>Use judge credentials or Google.</span>
+                </div>
+                <button
+                  type="button"
+                  className="auth-menu-close"
+                  aria-label="Close sign in"
+                  onClick={() => setLoginOpen(false)}
+                >
+                  <X size={16} aria-hidden="true" />
+                </button>
+              </div>
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void login("email");
+                }}
+              >
+                <label htmlFor="fenoa-email">Email</label>
+                <input
+                  id="fenoa-email"
+                  type="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+                <label htmlFor="fenoa-password">Password</label>
+                <input
+                  id="fenoa-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  className="button button-primary auth-menu-submit"
+                  disabled={busy}
+                >
+                  <Mail size={15} aria-hidden="true" />
+                  Sign in with email
+                </button>
+              </form>
+              <span className="auth-divider">or</span>
+              <button
+                type="button"
+                className="button button-quiet auth-menu-google"
+                onClick={() => void login("google")}
+                disabled={busy}
+              >
+                Continue with Google
+              </button>
+              {error ? (
+                <span className="auth-menu-error" role="alert">
+                  {error}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+        </>
       )}
-      {error ? (
+      {error && !loginOpen ? (
         <span className="auth-error" role="alert">
           {error}
         </span>
