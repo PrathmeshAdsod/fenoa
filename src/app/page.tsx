@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const { worlds, branches, profiles } = await listDiscovery();
-  const featured = worlds[0];
+  const featured = worlds.find((world) => world.coverImage) ?? worlds[0];
 
   return (
     <main className="discovery-shell">
@@ -64,12 +64,15 @@ export default async function Home() {
             <p className="eyebrow">Published possibility spaces</p>
             <h2>Worlds asking to be explored</h2>
           </div>
-          <Link href="/create">
-            Create a world <ArrowRight size={14} />
-          </Link>
+          <div className="discovery-heading-actions">
+            {worlds.length > 1 ? <span>Scroll the gallery →</span> : null}
+            <Link href="/create">
+              Create a world <ArrowRight size={14} />
+            </Link>
+          </div>
         </div>
         {worlds.length ? (
-          <div className="world-card-row">
+          <div className="world-card-row" aria-label="Published worlds">
             {worlds.map((world) => (
               <WorldCard
                 key={world.id}

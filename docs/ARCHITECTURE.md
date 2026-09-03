@@ -62,3 +62,18 @@ The Creative Partner is an editorial control beside the Branch Board, not a seco
 The server sends bounded current branch state and recent collaboration history through the OpenAI Responses API. The model and reasoning effort are configurable; production defaults to `gpt-5.6-terra` with medium reasoning. BUILD responses are parsed into at most four typed operations, checked against optimistic versions and locked story constraints, and committed atomically with their activity and undo snapshot. Quotas and a one-request session lease bound cost and concurrency without introducing polling.
 
 The original creator has an equivalent structured collaborator for the World Canvas. Suggestions and challenges remain advisory. BUILD patches are validated against the same world contract used by manual saves, and publishing always stays a separate human action.
+
+## Production configuration
+
+Firebase App Hosting supplies its managed `FIREBASE_CONFIG` and
+`FIREBASE_WEBAPP_CONFIG` values. The Admin SDK uses the former directly, while
+the Next.js build maps the latter into the public Firebase client bundle. Only
+provider credentials are Secret Manager references. Firestore rules and indexes
+are deployed independently so a failed application rollout cannot weaken the
+data boundary.
+
+The default App Hosting profile scales to zero, caps instances and concurrency,
+and leaves the creative model configurable. The repository pins the maintained
+Next.js 15.5 security line because current Next.js critical fixes are not issued
+for the older 15.2 line listed in App Hosting's support table. This compatibility
+exception is explicit and covered by the production build and browser gates.

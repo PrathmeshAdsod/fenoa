@@ -1,7 +1,14 @@
 "use client";
 
 import { doc, onSnapshot } from "firebase/firestore";
-import { ArrowUpRight, CircleAlert, LoaderCircle, Send, X } from "lucide-react";
+import {
+  ArrowUpRight,
+  CircleAlert,
+  LoaderCircle,
+  Send,
+  Sparkles,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -154,11 +161,15 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
         <div>
           <p className="eyebrow">Original creator studio</p>
           <h1>{draft.name}</h1>
-          <p>
-            Shape a possibility space the community can meaningfully explore.
-          </p>
+          <div className="creator-heading-meta">
+            <p>Shape the world readers will inherit.</p>
+            <span>Live World Canvas · v{draft.version}</span>
+          </div>
         </div>
         <div className="creator-publish-actions">
+          <a className="studio-assist-jump" href="#creator-partner">
+            <Sparkles size={15} /> Creative Partner
+          </a>
           {publishedUrl ? (
             <Link className="button button-quiet" href={publishedUrl}>
               View published world <ArrowUpRight size={15} />
@@ -190,7 +201,7 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
           onSave={save}
           onGenerateImage={generateImage}
         />
-        <aside>
+        <aside id="creator-partner">
           <WorldPartner
             session={session}
             loading={sessionLoading}

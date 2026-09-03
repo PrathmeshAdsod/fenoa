@@ -44,6 +44,12 @@ const worldId = "nightfall";
 const worldRevisionId = "nightfall-v1";
 const branchId = "nightfall-fragments";
 const branchRevisionId = "nightfall-fragments-v1";
+const nightfallCover = {
+  storagePath: null,
+  url: "/images/nightfall-cover.webp",
+  alt: "A rain-swept Nightfall street folding toward a clock stopped at 2:17",
+  generatedAt: "2026-09-03T07:01:52.000Z",
+};
 
 const characters = [
   {
@@ -199,7 +205,7 @@ const worldArtifact = {
   facts,
   storySpark:
     "Emma finds a photograph exposed at 2:11 AM, the first evidence that should not exist. John recognizes the room. Teddy recognizes the figure in its reflection. None of them can admit what they know without changing who the others believe them to be.",
-  coverImage: null,
+  coverImage: nightfallCover,
   remixEnabled: true,
 };
 
@@ -352,7 +358,7 @@ batch.set(db.collection("worlds").doc(worldId), {
   premise: worldArtifact.premise,
   genre: worldArtifact.genre,
   tone: worldArtifact.tone,
-  coverImage: null,
+  coverImage: nightfallCover,
   remixEnabled: true,
   remixCount: 1,
   creatorPickBranchId: branchId,
