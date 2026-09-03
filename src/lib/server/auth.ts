@@ -12,6 +12,8 @@ const invalidSessionCodes = new Set([
   "auth/invalid-session-cookie-duration",
   "auth/session-cookie-expired",
   "auth/session-cookie-revoked",
+  "auth/user-disabled",
+  "auth/user-not-found",
 ]);
 
 export function isInvalidSessionCookieError(error: unknown): boolean {
@@ -37,6 +39,19 @@ export async function requireUser(): Promise<{ uid: string }> {
         "Your session expired. Sign in again.",
       );
     }
+    throw error;
+  }
+}
+
+export async function optionalUser(): Promise<{ uid: string } | null> {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("__session")?.value;
+  if (!sessionCookie) return null;
+  try {
+    const decoded = await adminAuth().verifySessionCookie(sessionCookie, true);
+    return { uid: decoded.uid };
+  } catch (error) {
+    if (isInvalidSessionCookieError(error)) return null;
     throw error;
   }
 }

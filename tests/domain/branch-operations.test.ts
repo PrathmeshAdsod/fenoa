@@ -22,6 +22,10 @@ const branch: BranchDraft = {
   title: "The Fragments We Keep",
   creativeIntent: "Delay the reveal without losing momentum.",
   inheritedSummary: "Nightfall forgets 2:00–2:17 AM.",
+  inheritedCharacters: [],
+  inheritedRelationships: [],
+  inheritedFacts: [],
+  inheritedConstraints: [],
   addedCharacters: [],
   ruleOverrides: [],
   constraints: [
@@ -301,8 +305,17 @@ describe("branch operations", () => {
   });
 
   it("keeps compact branch reads free of narrative", () => {
-    const result = compactBranchState({ branch, episodes: [episode] });
+    const inheritedLock = {
+      ...branch.constraints[0]!,
+      id: "inherited-lena-lock",
+    };
+    const result = compactBranchState({
+      branch: { ...branch, inheritedConstraints: [inheritedLock] },
+      episodes: [episode],
+    });
     expect(result.episodes[0]).not.toHaveProperty("narrative");
     expect(JSON.stringify(result)).not.toContain("keyBeats");
+    expect(result.constraints.inheritedLocked).toEqual([inheritedLock]);
+    expect(result.constraints.branchLocal).toEqual(branch.constraints);
   });
 });

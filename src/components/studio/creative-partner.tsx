@@ -43,7 +43,7 @@ export function CreativePartner({
   session: CreativeSession | null;
   busy: boolean;
   loading: boolean;
-  onTurn(request: CreativeTurnRequest): Promise<void>;
+  onTurn(request: CreativeTurnRequest): Promise<boolean>;
   onUndo(): Promise<void>;
 }) {
   const [mode, setMode] = useState<Exclude<CreativeMode, "BUILD">>("SUGGEST");
@@ -60,8 +60,8 @@ export function CreativePartner({
   }, [branch.lastAgentAction]);
 
   async function send(requestedMode: CreativeMode) {
-    await onTurn({ mode: requestedMode, prompt });
-    if (requestedMode !== "BUILD") setPrompt("");
+    const completed = await onTurn({ mode: requestedMode, prompt });
+    if (completed && requestedMode !== "BUILD") setPrompt("");
   }
 
   return (

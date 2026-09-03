@@ -61,7 +61,24 @@ const provider: CreativeProvider = {
 
 describeWithEmulator("creative service with Firestore emulator", () => {
   beforeAll(async () => {
-    await adminDb().collection("creativeSessions").doc(branchId).delete();
+    const db = adminDb();
+    const userKey = (await import("node:crypto"))
+      .createHash("sha256")
+      .update(uid)
+      .digest("hex")
+      .slice(0, 24);
+    const now = new Date().toISOString();
+    const hour = now.slice(0, 13).replaceAll("-", "");
+    const day = now.slice(0, 10).replaceAll("-", "");
+    const batch = db.batch();
+    batch.delete(db.collection("creativeSessions").doc(branchId));
+    batch.delete(
+      db.collection("usageBuckets").doc(`user-hour-${userKey}-${hour}`),
+    );
+    batch.delete(
+      db.collection("usageBuckets").doc(`user-day-${userKey}-${day}`),
+    );
+    await batch.commit();
   });
 
   it("reserves creative-engine attribution for validated creative builds", async () => {
@@ -75,6 +92,14 @@ describeWithEmulator("creative service with Firestore emulator", () => {
   });
 
   it("persists finite turns, applies BUILD, and supports safe undo", async () => {
+    const originalEpisode = await adminDb()
+      .collection("branchDrafts")
+      .doc(branchId)
+      .collection("episodes")
+      .doc("episode-1")
+      .get();
+    const originalHook = originalEpisode.data()?.hook;
+
     const first = await runCreativeTurn(
       branchId,
       uid,
@@ -109,7 +134,7 @@ describeWithEmulator("creative service with Firestore emulator", () => {
       .collection("episodes")
       .doc("episode-1")
       .get();
-    expect(restored.data()?.hook).toContain("rain inside her coat");
+    expect(restored.data()?.hook).toBe(originalHook);
 
     for (let turn = 2; turn < 12; turn += 1) {
       await runCreativeTurn(

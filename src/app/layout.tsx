@@ -30,11 +30,7 @@ export default function RootLayout({
           </Link>
           <nav aria-label="Primary navigation">
             <Link href="/">Discover</Link>
-            <Link
-              href={`/studio/${process.env.NEXT_PUBLIC_NIGHTFALL_BRANCH_ID ?? "nightfall-fragments"}`}
-            >
-              Studio
-            </Link>
+            <Link href="/create">Create</Link>
           </nav>
           <AuthButton />
         </header>

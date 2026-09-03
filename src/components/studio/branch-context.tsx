@@ -125,6 +125,17 @@ export function BranchContext(props: BranchContextProps) {
               ? ` · branch ${props.branch.parentBranchRevisionId}`
               : ""}
           </small>
+          {props.branch.inheritedCharacters.length ||
+          props.branch.inheritedFacts.length ||
+          props.branch.inheritedConstraints.length ? (
+            <div className="inherited-counts">
+              <span>{props.branch.inheritedCharacters.length} cast</span>
+              <span>{props.branch.inheritedFacts.length} truths</span>
+              <span>
+                {props.branch.inheritedConstraints.length} carried locks
+              </span>
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -279,6 +290,15 @@ export function BranchContext(props: BranchContextProps) {
           </form>
         ) : null}
         <ul className="lock-list">
+          {props.branch.inheritedConstraints.map((constraint) => (
+            <li key={`inherited-${constraint.id}`} className="inherited-lock">
+              <div>
+                <span>Inherited lock</span>
+                <strong>{constraint.label}</strong>
+                <p>{constraint.description}</p>
+              </div>
+            </li>
+          ))}
           {props.branch.constraints.map((constraint) => (
             <li
               key={constraint.id}

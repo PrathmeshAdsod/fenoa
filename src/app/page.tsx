@@ -1,64 +1,114 @@
-import { ArrowRight, GitBranch, LockKeyhole, Sparkles } from "lucide-react";
+import { ArrowRight, GitBranch, Sparkles } from "lucide-react";
 import Link from "next/link";
 
-const branchId =
-  process.env.NEXT_PUBLIC_NIGHTFALL_BRANCH_ID ?? "nightfall-fragments";
+import { BranchCard } from "@/components/social/branch-card";
+import { WorldCard } from "@/components/social/world-card";
+import { listDiscovery } from "@/lib/server/world-repository";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const { worlds, branches, profiles } = await listDiscovery();
+  const featured = worlds[0];
+
   return (
-    <main>
-      <section className="hero">
-        <div className="hero-art" aria-hidden="true">
-          <div className="moon" />
-          <div className="city-line city-line-back" />
-          <div className="city-line city-line-front" />
-          <span className="time-mark">2:17</span>
-        </div>
-        <div className="hero-copy">
-          <p className="eyebrow">Featured world · supernatural noir</p>
-          <h1>Every night, seventeen minutes disappear.</h1>
-          <p className="hero-premise">
-            In Nightfall, memory fractures at 2:17 AM. The cameras die. The city
-            forgets. One man remembers enough to be afraid.
-          </p>
-          <div className="hero-actions">
-            <Link
-              href={`/studio/${branchId}`}
-              className="button button-primary"
-            >
-              Enter the branch <ArrowRight size={16} />
-            </Link>
-            <span>Created by Fenoa</span>
+    <main className="discovery-shell">
+      {featured ? (
+        <section
+          className={`discovery-hero ${featured.coverImage ? "has-image" : ""}`}
+          style={
+            featured.coverImage
+              ? { backgroundImage: `url("${featured.coverImage.url}")` }
+              : undefined
+          }
+        >
+          <div className="discovery-hero-shade" />
+          <div className="discovery-hero-copy">
+            <p className="eyebrow">Featured world · {featured.genre}</p>
+            <h1>{featured.name}</h1>
+            <p>{featured.premise}</p>
+            <div>
+              <Link
+                href={`/world/${featured.id}`}
+                className="button button-primary"
+              >
+                Enter this world <ArrowRight size={16} />
+              </Link>
+              <span>
+                By{" "}
+                {profiles.get(featured.creatorId)?.displayName ??
+                  "Fenoa creator"}
+              </span>
+            </div>
           </div>
+        </section>
+      ) : (
+        <section className="discovery-hero discovery-empty-hero">
+          <div className="discovery-hero-copy">
+            <p className="eyebrow">Fictional possibility spaces</p>
+            <h1>Create a world worth branching.</h1>
+            <p>
+              The first published world will lead discovery here. Fenoa does not
+              invent engagement or placeholder communities.
+            </p>
+            <Link href="/create" className="button button-primary">
+              Create the first world <ArrowRight size={16} />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      <section className="discovery-section">
+        <div className="discovery-section-heading">
+          <div>
+            <p className="eyebrow">Published possibility spaces</p>
+            <h2>Worlds asking to be explored</h2>
+          </div>
+          <Link href="/create">
+            Create a world <ArrowRight size={14} />
+          </Link>
         </div>
+        {worlds.length ? (
+          <div className="world-card-row">
+            {worlds.map((world) => (
+              <WorldCard
+                key={world.id}
+                world={world}
+                creator={profiles.get(world.creatorId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="social-empty">No worlds are published yet.</p>
+        )}
       </section>
 
-      <section className="thesis-section">
-        <p className="eyebrow">A possibility space, not a fixed canon</p>
-        <h2>Keep what matters. Change what could have been.</h2>
-        <div className="thesis-points">
-          <article>
-            <GitBranch />
-            <h3>Branch the story</h3>
-            <p>Remix a world or another remix without changing its history.</p>
-          </article>
-          <article>
-            <LockKeyhole />
-            <h3>Protect decisions</h3>
-            <p>
-              Lock secrets, relationships, appearances, and unresolved
-              mysteries.
-            </p>
-          </article>
-          <article>
-            <Sparkles />
-            <h3>Create with your agent</h3>
-            <p>
-              Humans and browser agents act on the same living branch through
-              native WebMCP.
-            </p>
-          </article>
+      <section className="discovery-section remix-discovery">
+        <div className="discovery-section-heading">
+          <div>
+            <p className="eyebrow">Top community branches</p>
+            <h2>Possibilities readers kept</h2>
+          </div>
+          <span>
+            <GitBranch size={15} /> Ranked by real likes
+          </span>
         </div>
+        {branches.length ? (
+          <div className="branch-card-row">
+            {branches.map((branch) => (
+              <BranchCard
+                key={branch.id}
+                branch={branch}
+                creator={profiles.get(branch.creatorId)}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="social-empty with-icon">
+            <Sparkles size={18} /> Community branches will appear after creators
+            publish them.
+          </div>
+        )}
       </section>
     </main>
   );

@@ -1,5 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
-import { Timestamp } from "firebase-admin/firestore";
+import { randomUUID } from "node:crypto";
 
 import {
   creativeSessionSchema,
@@ -22,6 +21,7 @@ import {
   type CreativeProvider,
 } from "@/lib/server/creative-provider";
 import { adminDb } from "@/lib/server/firebase-admin";
+import { reserveCreativeUsage } from "@/lib/server/creative-usage";
 
 const SESSION_TURN_CAP = 12;
 const IN_FLIGHT_TTL_MS = 2 * 60 * 1_000;
@@ -30,13 +30,6 @@ type TurnLease = {
   session: CreativeSession;
   state: Awaited<ReturnType<typeof readBranchAndEpisodes>>;
   startedAt: string;
-};
-
-type UsageLimit = {
-  id: string;
-  period: string;
-  limit: number;
-  expiresAt: Date;
 };
 
 function emptySession(
@@ -57,39 +50,6 @@ function emptySession(
   });
 }
 
-function utcPeriod(date: Date, hourly: boolean): string {
-  const iso = date.toISOString();
-  return hourly
-    ? iso.slice(0, 13).replaceAll("-", "")
-    : iso.slice(0, 10).replaceAll("-", "");
-}
-
-function usageLimits(uid: string, now: Date): UsageLimit[] {
-  const userKey = createHash("sha256").update(uid).digest("hex").slice(0, 24);
-  const hour = utcPeriod(now, true);
-  const day = utcPeriod(now, false);
-  return [
-    {
-      id: `user-hour-${userKey}-${hour}`,
-      period: hour,
-      limit: 30,
-      expiresAt: new Date(now.getTime() + 2 * 24 * 60 * 60 * 1_000),
-    },
-    {
-      id: `user-day-${userKey}-${day}`,
-      period: day,
-      limit: 100,
-      expiresAt: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1_000),
-    },
-    {
-      id: `project-day-${day}`,
-      period: day,
-      limit: 500,
-      expiresAt: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1_000),
-    },
-  ];
-}
-
 async function beginCreativeTurn(
   branchId: string,
   uid: string,
@@ -99,15 +59,10 @@ async function beginCreativeTurn(
   const sessionRef = db.collection("creativeSessions").doc(branchId);
   const nowDate = new Date();
   const now = nowDate.toISOString();
-  const limits = usageLimits(uid, nowDate);
-  const usageRefs = limits.map((limit) =>
-    db.collection("usageBuckets").doc(limit.id),
-  );
 
   return db.runTransaction(async (transaction) => {
     const state = await readBranchAndEpisodes(transaction, branchRef, uid);
     const sessionSnapshot = await transaction.get(sessionRef);
-    const usageSnapshots = await transaction.getAll(...usageRefs);
     const session = sessionSnapshot.exists
       ? creativeSessionSchema.parse({
           id: sessionSnapshot.id,
@@ -136,32 +91,7 @@ async function beginCreativeTurn(
         true,
       );
     }
-    for (const [index, limit] of limits.entries()) {
-      const snapshot = usageSnapshots[index];
-      const count = snapshot?.exists ? Number(snapshot.data()?.count ?? 0) : 0;
-      if (!Number.isSafeInteger(count) || count < 0) {
-        throw new DomainError("INTERNAL", "Creative usage state is invalid.");
-      }
-      if (count >= limit.limit) {
-        throw new DomainError(
-          "RATE_LIMITED",
-          "Creative Partner has reached a temporary usage limit. Try again later.",
-          true,
-        );
-      }
-    }
-
-    for (const [index, limit] of limits.entries()) {
-      const snapshot = usageSnapshots[index];
-      const count = snapshot?.exists ? Number(snapshot.data()?.count ?? 0) : 0;
-      transaction.set(usageRefs[index]!, {
-        count: count + 1,
-        period: limit.period,
-        limit: limit.limit,
-        updatedAt: now,
-        expiresAt: Timestamp.fromDate(limit.expiresAt),
-      });
-    }
+    await reserveCreativeUsage(transaction, db, uid, nowDate);
     transaction.set(sessionRef, {
       ...session,
       inFlight: true,

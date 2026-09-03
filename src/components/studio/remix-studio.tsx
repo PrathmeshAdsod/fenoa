@@ -8,7 +8,8 @@ import {
   orderBy,
   query,
 } from "firebase/firestore";
-import { CircleAlert, LoaderCircle, X } from "lucide-react";
+import { ArrowUpRight, CircleAlert, LoaderCircle, Send, X } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { BranchContext } from "@/components/studio/branch-context";
@@ -47,6 +48,7 @@ export function RemixStudio({ branchId }: { branchId: string }) {
   const [sessionLoading, setSessionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
   const branchReady = branch !== null;
 
   useEffect(() => {
@@ -321,12 +323,13 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     );
   }
 
-  async function creativeTurn(request: CreativeTurnRequest) {
+  async function creativeTurn(request: CreativeTurnRequest): Promise<boolean> {
     const result = await runMutation(
       () => domainClient.runCreativeTurn(branchId, request),
       "Creative Partner could not complete this turn.",
     );
     if (result) setSession(result.session);
+    return Boolean(result);
   }
 
   async function undoAgentAction() {
@@ -339,6 +342,15 @@ export function RemixStudio({ branchId }: { branchId: string }) {
         }),
       "The agent action can no longer be safely undone.",
     );
+  }
+
+  async function publishBranch() {
+    if (!branch) return;
+    const result = await runMutation(
+      () => domainClient.publishBranch(branchId, branch.version),
+      "The branch could not be published.",
+    );
+    if (result) setPublishedUrl(`/branch/${result.branch.id}`);
   }
 
   if (!firebaseConfigured) {
@@ -379,9 +391,23 @@ export function RemixStudio({ branchId }: { branchId: string }) {
           <h1>{branch.title}</h1>
           <p>{branch.creativeIntent}</p>
         </div>
-        <span className="live-indicator">
-          <span /> Firestore live
-        </span>
+        <div className="studio-publish-actions">
+          <span className="live-indicator">
+            <span /> Firestore live
+          </span>
+          {publishedUrl ? (
+            <Link className="button button-quiet" href={publishedUrl}>
+              View branch <ArrowUpRight size={14} />
+            </Link>
+          ) : null}
+          <button
+            className="button button-primary"
+            disabled={busy}
+            onClick={() => void publishBranch()}
+          >
+            <Send size={14} /> Publish remix
+          </button>
+        </div>
       </header>
 
       {error ? (
@@ -408,7 +434,7 @@ export function RemixStudio({ branchId }: { branchId: string }) {
           />
           {selected ? (
             <EpisodeEditor
-              key={selected.id}
+              key={`${selected.id}:${selected.version}`}
               episode={selected}
               onSave={saveEpisode}
             />

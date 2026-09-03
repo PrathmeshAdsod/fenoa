@@ -16,17 +16,21 @@ function violatesBranchFactLock(
   branch: BranchDraft,
   constraint: Extract<StoryConstraint, { type: "branch_fact_lock" }>,
 ): boolean {
-  const fact = branch.ruleOverrides.find(
+  const fact = [...branch.inheritedFacts, ...branch.ruleOverrides].find(
     (candidate) => candidate.id === constraint.factId,
   );
   return !fact || fact.statement !== constraint.statement;
+}
+
+function allConstraints(branch: BranchDraft): StoryConstraint[] {
+  return [...branch.inheritedConstraints, ...branch.constraints];
 }
 
 export function findConstraintViolation(
   branch: BranchDraft,
   episode: Episode,
 ): StoryConstraint | undefined {
-  return branch.constraints.find((constraint) => {
+  return allConstraints(branch).find((constraint) => {
     switch (constraint.type) {
       case "character_availability":
         return (
@@ -66,7 +70,7 @@ export function findConstraintViolation(
 export function findBranchConstraintViolation(
   branch: BranchDraft,
 ): StoryConstraint | undefined {
-  return branch.constraints.find(
+  return allConstraints(branch).find(
     (constraint) =>
       constraint.type === "branch_fact_lock" &&
       violatesBranchFactLock(branch, constraint),

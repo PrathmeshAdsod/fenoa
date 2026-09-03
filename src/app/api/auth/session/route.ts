@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 
 import { adminAuth } from "@/lib/server/firebase-admin";
 import { DomainError } from "@/lib/domain/errors";
-import { requestId, toErrorResponse } from "@/lib/server/http";
+import { requireUser } from "@/lib/server/auth";
+import { ok, requestId, toErrorResponse } from "@/lib/server/http";
+import {
+  getProfile,
+  saveProfileFromIdentity,
+} from "@/lib/server/world-repository";
 
 const SESSION_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
 
@@ -31,6 +36,20 @@ function assertCsrf(request: Request): void {
   }
 }
 
+export async function GET() {
+  const id = requestId();
+  try {
+    const user = await requireUser();
+    const profile = await getProfile(user.uid);
+    return ok(
+      { authenticated: true, uid: user.uid, displayName: profile.displayName },
+      id,
+    );
+  } catch (error) {
+    return toErrorResponse(error, id);
+  }
+}
+
 export async function POST(request: Request) {
   const id = requestId();
   try {
@@ -46,11 +65,19 @@ export async function POST(request: Request) {
         "A Firebase ID token is required.",
       );
     }
-    await adminAuth().verifyIdToken(idToken, true);
+    const identity = await adminAuth().verifyIdToken(idToken, true);
     const sessionCookie = await adminAuth().createSessionCookie(idToken, {
       expiresIn: SESSION_DURATION_MS,
     });
-    const response = NextResponse.json({ ok: true, requestId: id });
+    const profile = await saveProfileFromIdentity({
+      uid: identity.uid,
+      displayName: identity.name,
+      avatarUrl: identity.picture,
+    });
+    const response = ok(
+      { uid: identity.uid, displayName: profile.displayName },
+      id,
+    );
     response.cookies.set("__session", sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",

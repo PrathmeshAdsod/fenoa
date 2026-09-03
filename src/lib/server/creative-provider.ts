@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 
 import {
@@ -10,6 +9,11 @@ import {
 } from "@/lib/contracts/creative";
 import type { BranchState } from "@/lib/contracts/domain";
 import { DomainError } from "@/lib/domain/errors";
+import {
+  creativeModel,
+  creativeOpenAiClient,
+  creativeReasoning,
+} from "@/lib/server/ai-config";
 
 export type CreativeProviderInput = {
   mode: CreativeMode;
@@ -23,15 +27,6 @@ export interface CreativeProvider {
   generate(input: CreativeProviderInput): Promise<CreativeResponse>;
 }
 
-function providerModel(): string {
-  return process.env.OPENAI_CREATIVE_MODEL?.trim() || "gpt-5.6-terra";
-}
-
-function providerReasoning(): "low" | "medium" | "high" {
-  const configured = process.env.OPENAI_CREATIVE_REASONING?.trim();
-  return configured === "low" || configured === "high" ? configured : "medium";
-}
-
 function boundedContext(state: BranchState, session: CreativeSession) {
   return {
     branch: {
@@ -40,6 +35,10 @@ function boundedContext(state: BranchState, session: CreativeSession) {
       title: state.branch.title,
       creativeIntent: state.branch.creativeIntent,
       inheritedSummary: state.branch.inheritedSummary,
+      inheritedCharacters: state.branch.inheritedCharacters,
+      inheritedRelationships: state.branch.inheritedRelationships,
+      inheritedFacts: state.branch.inheritedFacts,
+      inheritedConstraints: state.branch.inheritedConstraints,
       addedCharacters: state.branch.addedCharacters,
       ruleOverrides: state.branch.ruleOverrides,
       constraints: state.branch.constraints,
@@ -72,19 +71,11 @@ BUILD converts the strongest current direction into one to four bounded structur
 
 export const openAiCreativeProvider: CreativeProvider = {
   async generate(input) {
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
-    if (!apiKey) {
-      throw new DomainError(
-        "PROVIDER_UNAVAILABLE",
-        "Creative Partner is not connected yet. Add the OpenAI API secret to continue.",
-        true,
-      );
-    }
-    const client = new OpenAI({ apiKey, maxRetries: 1, timeout: 45_000 });
+    const client = creativeOpenAiClient();
     const response = await client.responses.parse(
       {
-        model: providerModel(),
-        reasoning: { effort: providerReasoning() },
+        model: creativeModel(),
+        reasoning: { effort: creativeReasoning() },
         max_output_tokens: 4_000,
         instructions,
         input: JSON.stringify({
