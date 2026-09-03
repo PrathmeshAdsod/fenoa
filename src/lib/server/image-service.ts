@@ -102,7 +102,7 @@ export async function generateWorldCover(
           type: "image",
           aspect_ratio: "16:9",
           image_size: "1K",
-          mime_type: "image/png",
+          mime_type: "image/jpeg",
         },
       },
       { signal, timeout: 60_000 },
@@ -115,9 +115,11 @@ export async function generateWorldCover(
     if (bytes.length === 0 || bytes.length > 12 * 1024 * 1024) {
       throw new Error("The provider returned an invalid image size.");
     }
-    const contentType = generated.mime_type || "image/png";
-    const extension = contentType === "image/jpeg" ? "jpg" : "png";
-    const storagePath = `worlds/${worldId}/covers/${randomUUID()}.${extension}`;
+    const contentType = generated.mime_type || "image/jpeg";
+    if (contentType !== "image/jpeg") {
+      throw new Error("The provider returned an unsupported image type.");
+    }
+    const storagePath = `worlds/${worldId}/covers/${randomUUID()}.jpg`;
     const file = adminStorage().bucket(bucketName).file(storagePath);
     try {
       await file.save(bytes, {
