@@ -1,16 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 export default function globalSetup() {
   if (process.env.PLAYWRIGHT_BASE_URL) return;
 
-  const localEnvironment = readFileSync(".env.local", "utf8");
-  const firestoreEmulator = localEnvironment.match(
-    /^FIRESTORE_EMULATOR_HOST=(.+)$/m,
-  )?.[1];
+  const localEnvironment = existsSync(".env.local")
+    ? readFileSync(".env.local", "utf8")
+    : "";
+  const firestoreEmulator =
+    process.env.FIRESTORE_EMULATOR_HOST ??
+    localEnvironment.match(/^FIRESTORE_EMULATOR_HOST=(.+)$/m)?.[1];
   if (!firestoreEmulator?.trim()) {
     throw new Error(
-      "Local browser tests require FIRESTORE_EMULATOR_HOST in .env.local.",
+      "Browser tests require FIRESTORE_EMULATOR_HOST in the environment or .env.local.",
     );
   }
 
