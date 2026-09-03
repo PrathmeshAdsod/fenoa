@@ -10,11 +10,22 @@ type FirebaseWebAppConfig = {
 function appHostingFirebaseConfig(): FirebaseWebAppConfig {
   const raw = process.env.FIREBASE_WEBAPP_CONFIG;
   if (!raw) return {};
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as FirebaseWebAppConfig;
+    parsed = JSON.parse(raw) as unknown;
   } catch {
     throw new Error("FIREBASE_WEBAPP_CONFIG must contain valid JSON.");
   }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("FIREBASE_WEBAPP_CONFIG must contain a JSON object.");
+  }
+  const config = parsed as Record<string, unknown>;
+  for (const key of ["apiKey", "appId", "authDomain", "projectId"]) {
+    if (config[key] !== undefined && typeof config[key] !== "string") {
+      throw new Error(`FIREBASE_WEBAPP_CONFIG.${key} must be a string.`);
+    }
+  }
+  return config as FirebaseWebAppConfig;
 }
 
 const appHostingConfig = appHostingFirebaseConfig();

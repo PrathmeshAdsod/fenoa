@@ -1015,7 +1015,7 @@ select:focus-visible {
     grid-template-columns: 1fr;
   }
   .studio-rail {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }
 
