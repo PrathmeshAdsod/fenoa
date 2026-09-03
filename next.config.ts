@@ -31,6 +31,7 @@ function appHostingFirebaseConfig(): FirebaseWebAppConfig {
 const appHostingConfig = appHostingFirebaseConfig();
 
 const securityHeaders = [
+  { key: "Origin-Agent-Cluster", value: "?1" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
