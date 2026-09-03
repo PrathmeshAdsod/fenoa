@@ -5,20 +5,13 @@ import { adminAuth } from "@/lib/server/firebase-admin";
 import { DomainError } from "@/lib/domain/errors";
 import { requireUser } from "@/lib/server/auth";
 import { ok, requestId, toErrorResponse } from "@/lib/server/http";
+import { assertSameOrigin } from "@/lib/server/request-origin";
 import {
   getProfile,
   saveProfileFromIdentity,
 } from "@/lib/server/world-repository";
 
 const SESSION_DURATION_MS = 5 * 24 * 60 * 60 * 1000;
-
-function assertSameOrigin(request: Request): void {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (!origin || !host || new URL(origin).host !== host) {
-    throw new DomainError("FORBIDDEN", "The request origin is invalid.");
-  }
-}
 
 function assertCsrf(request: Request): void {
   const header = request.headers.get("x-csrf-token") ?? "";

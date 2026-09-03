@@ -6,6 +6,10 @@ runConfig:
   memoryMiB: 512
 
 env:
+  - variable: FENOA_PUBLIC_ORIGIN
+    value: https://fenoa--fenoa-creative.asia-southeast1.hosted.app
+    availability:
+      - RUNTIME
   - variable: NEXT_PUBLIC_USE_FIREBASE_EMULATORS
     value: "false"
     availability:

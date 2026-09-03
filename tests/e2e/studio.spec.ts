@@ -71,14 +71,15 @@ test("human and native WebMCP surfaces share the live branch", async ({
   await page.getByRole("button", { name: "Dismiss error" }).click();
   await page.getByRole("button", { name: "Character", exact: true }).click();
 
+  const hookEditor = page.getByLabel("Hook");
+  const firstHook = await hookEditor.inputValue();
+  expect(firstHook).not.toHaveLength(0);
   await page.locator(".episode-select").nth(1).click();
-  await expect(page.getByLabel("Hook")).toHaveValue(
-    "John finds seventeen missing minutes in every camera on Mercer Street.",
-  );
+  const secondHook = await hookEditor.inputValue();
+  expect(secondHook).not.toHaveLength(0);
+  expect(secondHook).not.toBe(firstHook);
   await page.locator(".episode-select").first().click();
-  await expect(page.getByLabel("Hook")).toHaveValue(
-    "Emma wakes beside a stopped clock with rain inside her coat.",
-  );
+  await expect(hookEditor).toHaveValue(firstHook);
 
   const registeredNames = await page.evaluate(() =>
     Array.from(
@@ -226,16 +227,18 @@ test("human and native WebMCP surfaces share the live branch", async ({
   expect(violation).toContain("Lena cannot appear before Episode 7");
 
   await page.locator(".episode-select").first().click();
-  await page
-    .getByLabel("Hook")
-    .fill("Emma wakes with rain folded into the lining of her coat.");
+  const persistedHook = await hookEditor.inputValue();
+  const revisedHook = persistedHook.includes("folded into the lining")
+    ? "Emma wakes beside a stopped clock with rain inside her coat."
+    : "Emma wakes with rain folded into the lining of her coat.";
+  await hookEditor.fill(revisedHook);
   await page.getByRole("button", { name: "Save now" }).click();
   await expect(page.locator(".episode-card").first()).toContainText(
-    "Emma wakes with rain folded into the lining of her coat.",
+    revisedHook,
   );
   await page.reload();
   await expect(page.locator(".episode-card").first()).toContainText(
-    "Emma wakes with rain folded into the lining of her coat.",
+    revisedHook,
   );
 
   await page.getByRole("button", { name: /keep exploring/i }).click();

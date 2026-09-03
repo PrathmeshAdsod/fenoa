@@ -1,4 +1,20 @@
 {
+  "apphosting": {
+    "backendId": "fenoa",
+    "rootDir": ".",
+    "ignore": [
+      "node_modules",
+      ".git",
+      ".next",
+      ".env*",
+      ".firebase",
+      "coverage",
+      "playwright-report",
+      "test-results",
+      "firebase-debug.log",
+      "firebase-debug.*.log"
+    ]
+  },
   "firestore": {
     "rules": "firebase/firestore.rules",
     "indexes": "firebase/firestore.indexes.json"
