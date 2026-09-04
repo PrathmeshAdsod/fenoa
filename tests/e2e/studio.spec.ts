@@ -60,6 +60,7 @@ test("human and native WebMCP surfaces share the live branch", async ({
       }),
     { times: 1 },
   );
+  await page.getByRole("button", { name: /Reference Story Context/ }).click();
   await page.getByRole("button", { name: "Character", exact: true }).click();
   await page.getByLabel("Name").fill("Lena");
   await page.getByLabel("Role in this branch").fill("A duplicate visitor");
@@ -139,7 +140,7 @@ test("human and native WebMCP surfaces share the live branch", async ({
   await expect(
     page.getByText("Rain remembers the missing minutes.", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Undo agent action" }).click();
+  await page.getByRole("button", { name: "Undo" }).click();
   await expect(
     page.getByText("Rain remembers the missing minutes.", { exact: true }),
   ).toHaveCount(0);
@@ -184,10 +185,13 @@ test("human and native WebMCP surfaces share the live branch", async ({
       },
     });
   }, episode.episode);
+  await page.locator(".episode-select").nth(4).click();
+  await expect(hookEditor).toHaveValue(
+    "Emma finds a frame that should not have survived 2:17.",
+  );
   await expect(
-    page.getByText("Emma finds a frame that should not have survived 2:17."),
+    page.getByText("Agent edit", { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText("Agent changed")).toBeVisible();
 
   const violation = await page.evaluate(async () => {
     const tools = (
@@ -233,15 +237,11 @@ test("human and native WebMCP surfaces share the live branch", async ({
     : "Emma wakes with rain folded into the lining of her coat.";
   await hookEditor.fill(revisedHook);
   await page.getByRole("button", { name: "Save now" }).click();
-  await expect(page.locator(".episode-card").first()).toContainText(
-    revisedHook,
-  );
+  await expect(hookEditor).toHaveValue(revisedHook);
   await page.reload();
-  await expect(page.locator(".episode-card").first()).toContainText(
-    revisedHook,
-  );
+  await expect(hookEditor).toHaveValue(revisedHook);
 
-  await page.getByRole("button", { name: /keep exploring/i }).click();
+  await page.getByRole("button", { name: "Develop this", exact: true }).click();
   await expect(page.locator(".error-banner")).toContainText(
     "Creative Partner is not connected yet",
   );

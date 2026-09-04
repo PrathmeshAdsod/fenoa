@@ -15,21 +15,24 @@ test("creator publishes a real world and a remix-of-remix path", async ({
   await page.goto("/create");
   await page.getByLabel("World name").fill("The Glass Orchard");
   await page
-    .getByLabel("What makes this world impossible to ignore?")
+    .getByLabel("Premise")
     .fill(
       "Every fruit in the orchard contains one future, and harvesting it erases every other path.",
     );
   await page.getByLabel("Genre").fill("Mythic speculative fiction");
   await page.getByLabel("Tone").fill("Luminous, intimate, and irreversible");
-  await page.getByRole("button", { name: /open the world canvas/i }).click();
+  await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "The Glass Orchard",
   );
 
   await page.getByRole("button", { name: "Add character" }).click();
   await page.getByRole("button", { name: "Add character" }).click();
-  const names = page.getByLabel("Character name");
-  const roles = page.getByLabel("Character role");
+  const cast = page.locator(".canvas-cast");
+  await cast.getByRole("button", { name: "Edit" }).first().click();
+  await cast.getByRole("button", { name: "Edit" }).first().click();
+  const names = cast.getByLabel("Name", { exact: true });
+  const roles = cast.getByLabel("Role in the world");
   await names.nth(0).fill("Iris Vale");
   await roles
     .nth(0)
@@ -39,14 +42,18 @@ test("creator publishes a real world and a remix-of-remix path", async ({
     .nth(1)
     .fill("Her brother, already fading from every possible path");
   await page.getByRole("button", { name: "Add connection" }).click();
-  await page
-    .getByLabel("Relationship description")
+  const connection = page.locator(".connection-item").last();
+  await connection.locator("summary").click();
+  await connection
+    .getByLabel("What connects them")
     .fill(
       "Iris protects Soren by refusing the one future he wants her to choose.",
     );
   await page.getByRole("button", { name: "Add truth" }).click();
-  await page
-    .getByLabel("Fact statement")
+  const truth = page.locator(".truth-item").last();
+  await truth.locator("summary").click();
+  await truth
+    .getByLabel("What stays true")
     .fill("Every harvested future permanently erases all alternatives.");
   await page
     .getByPlaceholder(/what kind of story might happen here/i)
@@ -54,7 +61,9 @@ test("creator publishes a real world and a remix-of-remix path", async ({
       "Soren asks Iris to harvest the only future in which he survives, knowing it will erase the person she becomes in every other path.",
     );
   await page.getByRole("button", { name: "Save canvas" }).click();
-  await expect(page.getByText(/World Canvas v2/)).toBeVisible();
+  await expect(
+    page.getByText("World Canvas · v2", { exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "Publish revision" }).click();
   const worldLink = page.getByRole("link", { name: /view published world/i });
@@ -94,11 +103,9 @@ test("creator publishes a real world and a remix-of-remix path", async ({
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "The Future Iris Remembers",
   );
+  await expect(page.getByRole("region", { name: "Episodes" })).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "Branch Board" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "What this path carries" }),
+    page.getByRole("button", { name: /Reference Story Context/ }),
   ).toBeVisible();
 
   await page.goto(
