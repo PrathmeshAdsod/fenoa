@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowRight, Hammer, LoaderCircle, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  Hammer,
+  LoaderCircle,
+  Sparkles,
+} from "lucide-react";
 import { useState } from "react";
 
 import type {
@@ -16,7 +22,8 @@ type Props = {
   onTurn(request: CreativeTurnRequest): Promise<boolean>;
 };
 
-const lenses: Array<{ mode: CreativeMode; label: string }> = [
+const lenses: Array<{ mode: Exclude<CreativeMode, "BUILD">; label: string }> = [
+  { mode: "ASK", label: "Ask" },
   { mode: "SUGGEST", label: "Suggest" },
   { mode: "CHALLENGE", label: "Challenge" },
   { mode: "CONNECT", label: "Connect" },
@@ -24,13 +31,24 @@ const lenses: Array<{ mode: CreativeMode; label: string }> = [
 ];
 
 export function WorldPartner({ session, loading, busy, onTurn }: Props) {
+  const [mode, setMode] = useState<Exclude<CreativeMode, "BUILD">>("SUGGEST");
   const [prompt, setPrompt] = useState("");
   const latest = session?.turns.at(-1)?.response;
   const capped = (session?.turnCount ?? 0) >= 12;
+  const primaryIdea = latest?.ideas[0] ?? null;
 
-  async function run(mode: CreativeMode, direction = prompt) {
-    const completed = await onTurn({ mode, prompt: direction.trim() });
-    if (completed && direction === prompt) setPrompt("");
+  async function run(requestedMode: CreativeMode, direction = prompt) {
+    const completed = await onTurn({
+      mode: requestedMode,
+      prompt: direction.trim(),
+    });
+    if (completed && direction === prompt && requestedMode !== "BUILD") {
+      setPrompt("");
+    }
+  }
+
+  function ideaDirection(title: string, detail: string): string {
+    return `${title}. ${detail}`;
   }
 
   return (
@@ -38,9 +56,9 @@ export function WorldPartner({ session, loading, busy, onTurn }: Props) {
       <div className="world-partner-heading">
         <div>
           <p className="eyebrow">Creative Partner</p>
-          <h2 id="world-partner-title">Find the sharper choice</h2>
+          <h2 id="world-partner-title">What are you thinking about?</h2>
         </div>
-        <Sparkles size={18} aria-hidden="true" />
+        <Sparkles size={17} aria-hidden="true" />
       </div>
 
       {loading ? (
@@ -51,92 +69,127 @@ export function WorldPartner({ session, loading, busy, onTurn }: Props) {
         <div className="world-partner-response" aria-live="polite">
           <span>{latest.mode.toLowerCase()}</span>
           <p>{latest.message}</p>
-          <small>
-            {latest.readiness.readyToBuild
-              ? "Ready to build · "
-              : "Taking shape · "}
-            {latest.readiness.rationale}
-          </small>
-          {latest.ideas.length ? (
-            <div className="world-idea-list">
-              {latest.ideas.map((idea) => (
+          {primaryIdea ? (
+            <article className="world-primary-idea">
+              <strong>{primaryIdea.title}</strong>
+              <p>{primaryIdea.detail}</p>
+              <div>
                 <button
                   type="button"
-                  key={`${idea.title}-${idea.detail}`}
+                  className="text-action"
+                  disabled={busy || capped}
+                  onClick={() =>
+                    void run(
+                      "SUGGEST",
+                      `Develop this direction further: ${ideaDirection(primaryIdea.title, primaryIdea.detail)}`,
+                    )
+                  }
+                >
+                  Develop this <ArrowRight size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="text-action"
                   disabled={busy || capped}
                   onClick={() =>
                     void run(
                       "BUILD",
-                      `Apply this direction to the World Canvas: ${idea.title}. ${idea.detail}`,
+                      `Apply this direction to the World Canvas: ${ideaDirection(primaryIdea.title, primaryIdea.detail)}`,
                     )
                   }
                 >
-                  <strong>{idea.title}</strong>
-                  <span>{idea.detail}</span>
-                  <em>
-                    Build this <ArrowRight size={13} />
-                  </em>
+                  Apply to world <ArrowRight size={13} aria-hidden="true" />
                 </button>
-              ))}
-            </div>
+              </div>
+            </article>
           ) : null}
+          {latest.ideas.length > 1 ? (
+            <details className="world-more-ideas">
+              <summary>More suggestions</summary>
+              <div className="world-idea-list">
+                {latest.ideas.slice(1).map((idea) => (
+                  <button
+                    type="button"
+                    key={`${idea.title}-${idea.detail}`}
+                    disabled={busy || capped}
+                    onClick={() =>
+                      void run(
+                        "BUILD",
+                        `Apply this direction to the World Canvas: ${ideaDirection(idea.title, idea.detail)}`,
+                      )
+                    }
+                  >
+                    <strong>{idea.title}</strong>
+                    <span>{idea.detail}</span>
+                    <em>Apply to world</em>
+                  </button>
+                ))}
+              </div>
+            </details>
+          ) : null}
+          <small>{latest.readiness.rationale}</small>
         </div>
       ) : (
         <p className="world-partner-intro">
-          Ask for a focused lens. Suggestions and challenges will use the live
-          cast, relationships, truths, and story spark already on your canvas.
+          Work independently, or invite a focused suggestion using the live
+          characters, connections, truths, and story spark on this canvas.
         </p>
       )}
 
       <label className="partner-prompt">
-        Direction or uncertainty
+        Share a direction or uncertainty
         <textarea
           value={prompt}
           maxLength={1_200}
           disabled={busy || capped}
-          placeholder="John and Teddy both feel dangerous. Help me separate them."
+          placeholder="What feels unresolved?"
           onChange={(event) => setPrompt(event.target.value)}
         />
       </label>
-      <div className="world-lenses">
-        {lenses.map((lens) => (
-          <button
-            type="button"
-            key={lens.mode}
-            disabled={busy || capped}
-            onClick={() => void run(lens.mode)}
-          >
-            {lens.label}
-          </button>
-        ))}
-      </div>
+
       <div className="world-build-actions">
+        <button
+          type="button"
+          className="button button-quiet"
+          disabled={busy || capped}
+          onClick={() => void run(mode)}
+        >
+          {busy ? <LoaderCircle className="spin" size={15} /> : null}
+          Think with me
+        </button>
         <button
           type="button"
           className="button button-primary"
           disabled={busy || capped}
           onClick={() => void run("BUILD")}
         >
-          {busy ? (
-            <LoaderCircle className="spin" size={15} />
-          ) : (
-            <Hammer size={15} />
-          )}
-          Build now
-        </button>
-        <button
-          type="button"
-          className="button button-quiet"
-          disabled={busy || capped}
-          onClick={() => void run("ASK")}
-        >
-          Keep exploring
+          <Hammer size={15} aria-hidden="true" /> Apply to world
         </button>
       </div>
+
+      <details className="partner-more">
+        <summary>
+          More ways to work <ChevronDown size={14} aria-hidden="true" />
+        </summary>
+        <div className="world-lenses" aria-label="Creative approach">
+          {lenses.map((lens) => (
+            <button
+              type="button"
+              key={lens.mode}
+              className={mode === lens.mode ? "active" : ""}
+              aria-pressed={mode === lens.mode}
+              onClick={() => setMode(lens.mode)}
+            >
+              {lens.label}
+            </button>
+          ))}
+        </div>
+      </details>
+
       <small className="turn-safety">
         {capped
-          ? "The 12-turn safety cap is complete. Manual canvas editing remains available."
-          : `${session?.turnCount ?? 0} of 12 safety turns used · no minimum or target`}
+          ? "The 12-turn safety cap is complete. Manual editing remains available."
+          : `${session?.turnCount ?? 0} of 12 safety turns used · readiness is checked every turn`}
       </small>
     </section>
   );

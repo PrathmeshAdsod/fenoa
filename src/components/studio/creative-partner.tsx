@@ -1,16 +1,13 @@
 "use client";
 
 import {
-  Bot,
+  ArrowRight,
+  ChevronDown,
   Hammer,
-  Link2,
-  MessageCircleQuestion,
   RotateCcw,
-  Scale,
   Sparkles,
-  WandSparkles,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import type {
   CreativeMode,
@@ -22,13 +19,12 @@ import type { BranchDraft } from "@/lib/contracts/domain";
 const lenses: Array<{
   mode: Exclude<CreativeMode, "BUILD">;
   label: string;
-  icon: typeof Sparkles;
 }> = [
-  { mode: "ASK", label: "Ask", icon: MessageCircleQuestion },
-  { mode: "SUGGEST", label: "Suggest", icon: WandSparkles },
-  { mode: "CHALLENGE", label: "Challenge", icon: Scale },
-  { mode: "CONNECT", label: "Connect", icon: Link2 },
-  { mode: "RESOLVE", label: "Resolve", icon: Sparkles },
+  { mode: "ASK", label: "Ask" },
+  { mode: "SUGGEST", label: "Suggest" },
+  { mode: "CHALLENGE", label: "Challenge" },
+  { mode: "CONNECT", label: "Connect" },
+  { mode: "RESOLVE", label: "Resolve" },
 ];
 
 export function CreativePartner({
@@ -49,57 +45,41 @@ export function CreativePartner({
   const [mode, setMode] = useState<Exclude<CreativeMode, "BUILD">>("SUGGEST");
   const [prompt, setPrompt] = useState("");
   const latest = session?.turns.at(-1) ?? null;
+  const primaryIdea = latest?.response.ideas[0] ?? null;
   const atCap = (session?.turnCount ?? 0) >= 12;
-  const remaining = 12 - (session?.turnCount ?? 0);
-  const activityTime = useMemo(() => {
-    if (!branch.lastAgentAction) return null;
-    return new Intl.DateTimeFormat(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    }).format(new Date(branch.lastAgentAction.createdAt));
-  }, [branch.lastAgentAction]);
 
-  async function send(requestedMode: CreativeMode) {
-    const completed = await onTurn({ mode: requestedMode, prompt });
-    if (completed && requestedMode !== "BUILD") setPrompt("");
+  async function send(requestedMode: CreativeMode, direction = prompt) {
+    const completed = await onTurn({
+      mode: requestedMode,
+      prompt: direction.trim(),
+    });
+    if (completed && direction === prompt && requestedMode !== "BUILD") {
+      setPrompt("");
+    }
+  }
+
+  function ideaDirection(title: string, detail: string): string {
+    return `${title}. ${detail}`;
   }
 
   return (
     <section className="partner-panel" aria-labelledby="creative-partner-title">
       <div className="partner-heading">
-        <div className="panel-icon">
-          <Bot size={18} aria-hidden="true" />
-        </div>
         <div>
           <p className="eyebrow">Creative Partner</p>
-          <h2 id="creative-partner-title">Find the stronger choice.</h2>
+          <h2 id="creative-partner-title">What are you thinking about?</h2>
         </div>
+        <Sparkles size={16} aria-hidden="true" />
       </div>
       <p className="partner-intent">{branch.creativeIntent}</p>
 
-      <div className="lens-picker" aria-label="Creative lens">
-        {lenses.map((lens) => {
-          const Icon = lens.icon;
-          return (
-            <button
-              key={lens.mode}
-              className={mode === lens.mode ? "active" : ""}
-              type="button"
-              aria-pressed={mode === lens.mode}
-              onClick={() => setMode(lens.mode)}
-            >
-              <Icon size={14} aria-hidden="true" /> {lens.label}
-            </button>
-          );
-        })}
-      </div>
-
       <label className="partner-prompt">
-        Direction for this turn
+        Share a direction or uncertainty
         <textarea
           value={prompt}
           maxLength={1_200}
-          placeholder="What feels unresolved, fragile, or ready to become real?"
+          disabled={atCap}
+          placeholder="What feels unresolved?"
           onChange={(event) => setPrompt(event.target.value)}
         />
       </label>
@@ -111,7 +91,7 @@ export function CreativePartner({
           disabled={busy || loading || atCap}
           onClick={() => void send(mode)}
         >
-          {busy ? "Thinking…" : `Keep exploring · ${mode.toLowerCase()}`}
+          {busy ? "Thinking…" : "Develop this"}
         </button>
         <button
           className="button button-primary"
@@ -119,15 +99,8 @@ export function CreativePartner({
           disabled={busy || loading || atCap}
           onClick={() => void send("BUILD")}
         >
-          <Hammer size={14} aria-hidden="true" /> Build now
+          <Hammer size={14} aria-hidden="true" /> Apply to episode
         </button>
-      </div>
-
-      <div className="turn-meter">
-        <span>
-          {atCap ? "Safety cap reached" : `${remaining} turns available`}
-        </span>
-        <span>Readiness is evaluated every turn</span>
       </div>
 
       {loading ? (
@@ -136,56 +109,112 @@ export function CreativePartner({
         </div>
       ) : latest ? (
         <article className="partner-response" aria-live="polite">
-          <header>
-            <span>{latest.response.mode}</span>
-            <span
-              className={
-                latest.response.readiness.readyToBuild ? "ready" : "exploring"
-              }
-            >
-              {latest.response.readiness.readyToBuild
-                ? "Ready to build"
-                : "Still opening possibilities"}
-            </span>
-          </header>
+          <span>{latest.response.mode.toLowerCase()}</span>
           <p>{latest.response.message}</p>
-          {latest.response.ideas.length ? (
-            <div className="idea-notes">
-              {latest.response.ideas.map((idea) => (
-                <div key={`${latest.id}-${idea.title}`}>
+          {primaryIdea ? (
+            <div className="partner-primary-idea">
+              <strong>{primaryIdea.title}</strong>
+              <p>{primaryIdea.detail}</p>
+              <div>
+                <button
+                  type="button"
+                  className="text-action"
+                  disabled={busy || atCap}
+                  onClick={() =>
+                    void send(
+                      "SUGGEST",
+                      `Develop this direction further: ${ideaDirection(primaryIdea.title, primaryIdea.detail)}`,
+                    )
+                  }
+                >
+                  Develop this <ArrowRight size={13} aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className="text-action"
+                  disabled={busy || atCap}
+                  onClick={() =>
+                    void send(
+                      "BUILD",
+                      `Apply this direction to the current remix: ${ideaDirection(primaryIdea.title, primaryIdea.detail)}`,
+                    )
+                  }
+                >
+                  Apply <ArrowRight size={13} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          ) : null}
+          {latest.response.ideas.length > 1 ? (
+            <details className="idea-notes">
+              <summary>More suggestions</summary>
+              {latest.response.ideas.slice(1).map((idea) => (
+                <button
+                  type="button"
+                  key={`${latest.id}-${idea.title}`}
+                  disabled={busy || atCap}
+                  onClick={() =>
+                    void send(
+                      "BUILD",
+                      `Apply this direction to the current remix: ${ideaDirection(idea.title, idea.detail)}`,
+                    )
+                  }
+                >
                   <strong>{idea.title}</strong>
                   <span>{idea.detail}</span>
-                </div>
+                </button>
               ))}
-            </div>
+            </details>
           ) : null}
           <small>{latest.response.readiness.rationale}</small>
         </article>
       ) : (
         <div className="partner-response empty-note">
-          Choose a lens whenever the artifact needs pressure or possibility.
-          Build is available immediately; there is no required conversation.
+          The partner reads the live episode and story context. Build is always
+          available; there is no required conversation.
         </div>
       )}
 
       {branch.lastAgentAction ? (
         <div className="undo-strip">
-          <div>
-            <strong>{branch.lastAgentAction.summary}</strong>
-            <span>
-              {activityTime ? `Applied at ${activityTime}` : "Applied live"}
-            </span>
-          </div>
+          <span>Agent edit</span>
+          <strong>{branch.lastAgentAction.summary}</strong>
           <button
-            className="button button-quiet"
+            className="text-action"
             type="button"
             disabled={busy}
             onClick={() => void onUndo()}
           >
-            <RotateCcw size={14} aria-hidden="true" /> Undo agent action
+            <RotateCcw size={13} aria-hidden="true" /> Undo
           </button>
         </div>
       ) : null}
+
+      <details className="partner-more">
+        <summary>
+          More ways to work <ChevronDown size={14} aria-hidden="true" />
+        </summary>
+        <div className="lens-picker" aria-label="Creative approach">
+          {lenses.map((lens) => (
+            <button
+              key={lens.mode}
+              className={mode === lens.mode ? "active" : ""}
+              type="button"
+              aria-pressed={mode === lens.mode}
+              onClick={() => setMode(lens.mode)}
+            >
+              {lens.label}
+            </button>
+          ))}
+        </div>
+      </details>
+
+      <div className="turn-meter">
+        <span>
+          {atCap ? "Safety cap reached" : "Readiness checked every turn"}
+        </span>
+        <span>{session?.turnCount ?? 0} / 12 safety turns</span>
+      </div>
     </section>
   );
 }

@@ -394,7 +394,7 @@ export function RemixStudio({ branchId }: { branchId: string }) {
     <main className="studio-shell">
       <header className="studio-heading">
         <div>
-          <p className="eyebrow">Remix Studio · {branch.rootWorldId}</p>
+          <p className="eyebrow">Remix Studio</p>
           <h1>{branch.title}</h1>
           <p>{branch.creativeIntent}</p>
         </div>
@@ -431,26 +431,17 @@ export function RemixStudio({ branchId }: { branchId: string }) {
       ) : null}
 
       <div className="studio-grid">
-        <div className="artifact-column">
-          <EpisodeBoard
-            episodes={episodes}
-            selectedId={selectedId}
-            agentTargetIds={agentTargetIds}
-            context={{
-              inheritedCast: branch.inheritedCharacters.length,
-              inheritedTruths: branch.inheritedFacts.length,
-              branchChanges:
-                branch.addedCharacters.length + branch.ruleOverrides.length,
-              lockedDecisions:
-                branch.inheritedConstraints.length + branch.constraints.length,
-              latestAgentChange: branch.lastAgentAction?.summary ?? null,
-            }}
-            busy={busy}
-            onSelect={setSelectedId}
-            onMove={moveEpisode}
-            onAdd={addEpisode}
-            onDelete={deleteEpisode}
-          />
+        <EpisodeBoard
+          episodes={episodes}
+          selectedId={selectedId}
+          agentTargetIds={agentTargetIds}
+          busy={busy}
+          onSelect={setSelectedId}
+          onMove={moveEpisode}
+          onAdd={addEpisode}
+          onDelete={deleteEpisode}
+        />
+        <div className="manuscript-column">
           {selected ? (
             <EpisodeEditor
               key={`${selected.id}:${selected.version}`}

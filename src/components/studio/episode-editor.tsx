@@ -88,8 +88,8 @@ export function EpisodeEditor({
     <section className="episode-editor" aria-labelledby="episode-editor-title">
       <div className="editor-heading">
         <div>
-          <p className="eyebrow">Episode {episode.position}</p>
-          <h3 id="episode-editor-title">Shape the scene</h3>
+          <p className="eyebrow">Writing</p>
+          <h3 id="episode-editor-title">Episode {episode.position}</h3>
         </div>
         <span className={`save-state ${dirty ? "dirty" : ""}`}>
           {saving ? (
@@ -137,14 +137,19 @@ export function EpisodeEditor({
             maxLength={300}
           />
         </label>
-        <label>
-          Key beats <span>one per line</span>
-          <textarea
-            value={draft.keyBeats}
-            onChange={(event) => update("keyBeats", event.target.value)}
-            maxLength={2_400}
-          />
-        </label>
+        <details className="episode-outline">
+          <summary>
+            Key beats <span>one per line</span>
+          </summary>
+          <label>
+            Episode outline
+            <textarea
+              value={draft.keyBeats}
+              onChange={(event) => update("keyBeats", event.target.value)}
+              maxLength={2_400}
+            />
+          </label>
+        </details>
         <label className="field-narrative">
           <span className="label-with-icon">
             <FileText size={14} aria-hidden="true" /> Short narrative

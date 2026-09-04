@@ -159,11 +159,11 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
     <main className="creator-studio-shell">
       <header className="creator-studio-heading">
         <div>
-          <p className="eyebrow">Original creator studio</p>
+          <p className="eyebrow">Creator studio</p>
           <h1>{draft.name}</h1>
           <div className="creator-heading-meta">
-            <p>Shape the world readers will inherit.</p>
-            <span>Live World Canvas · v{draft.version}</span>
+            <p>Build the world readers will inherit.</p>
+            <span>World Canvas · v{draft.version}</span>
           </div>
         </div>
         <div className="creator-publish-actions">
@@ -194,6 +194,14 @@ export function CreatorStudio({ worldId }: { worldId: string }) {
         </div>
       ) : null}
       <div className="creator-studio-grid">
+        <nav className="creator-section-nav" aria-label="World Canvas sections">
+          <span>World Canvas</span>
+          <a href="#world">World</a>
+          <a href="#characters">Characters</a>
+          <a href="#connections">Connections</a>
+          <a href="#truths">Truths</a>
+          <a href="#story-spark">Story Spark</a>
+        </nav>
         <WorldCanvas
           key={canvasContentKey(draft)}
           draft={draft}

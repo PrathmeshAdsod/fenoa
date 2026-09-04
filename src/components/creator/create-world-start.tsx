@@ -35,11 +35,11 @@ export function CreateWorldStart() {
   return (
     <main className="creator-start-shell">
       <section className="creator-start-copy">
-        <p className="eyebrow">Original world studio</p>
-        <h1>Begin with a possibility, not an encyclopedia.</h1>
+        <p className="eyebrow">Create a world</p>
+        <h1>Start with the idea.</h1>
         <p>
-          Give Fenoa the essential tension. The live World Canvas and Creative
-          Partner will help you shape the cast, connections, truths, and spark.
+          A name and a clear premise are enough. You can shape the characters,
+          connections, truths, and story spark inside the studio.
         </p>
       </section>
       <form className="creator-start-form" onSubmit={create}>
@@ -48,7 +48,7 @@ export function CreateWorldStart() {
           <input name="name" minLength={2} maxLength={80} required />
         </label>
         <label className="wide">
-          What makes this world impossible to ignore?
+          Premise
           <textarea name="premise" minLength={20} maxLength={600} required />
         </label>
         <label>
@@ -74,7 +74,7 @@ export function CreateWorldStart() {
         {error ? <p className="form-error">{error}</p> : null}
         <button className="button button-primary wide" disabled={busy}>
           {busy ? <LoaderCircle className="spin" size={16} /> : null}
-          Open the World Canvas <ArrowRight size={16} />
+          Continue <ArrowRight size={16} />
         </button>
       </form>
     </main>

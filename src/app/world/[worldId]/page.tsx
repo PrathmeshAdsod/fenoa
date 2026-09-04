@@ -33,15 +33,7 @@ export default async function WorldPage({
 
   return (
     <main className="world-page">
-      <section
-        className={`world-page-hero ${data.world.coverImage ? "has-image" : ""}`}
-        style={
-          data.world.coverImage
-            ? { backgroundImage: `url("${data.world.coverImage.url}")` }
-            : undefined
-        }
-      >
-        <div className="world-page-shade" />
+      <section className="world-page-hero">
         <div className="world-page-hero-copy">
           <p className="eyebrow">
             {data.world.genre} · {data.world.tone}
@@ -65,11 +57,24 @@ export default async function WorldPage({
             ) : null}
           </div>
         </div>
+        <div
+          className={`world-page-cover ${data.world.coverImage ? "has-image" : ""}`}
+          style={
+            data.world.coverImage
+              ? { backgroundImage: `url("${data.world.coverImage.url}")` }
+              : undefined
+          }
+          role="img"
+          aria-label={
+            data.world.coverImage?.alt ??
+            `${data.world.name} does not have published artwork yet`
+          }
+        />
       </section>
 
       <section className="world-detail-lede">
         <div>
-          <p className="eyebrow">Visual language</p>
+          <p className="eyebrow">Atmosphere</p>
           <h2>{data.revision.aesthetic || data.world.tone}</h2>
         </div>
         <div>
@@ -133,8 +138,8 @@ export default async function WorldPage({
         <div className="world-detail-heading">
           <span>03</span>
           <div>
-            <p className="eyebrow">Rules, facts, tensions</p>
-            <h2>What every branch inherits</h2>
+            <p className="eyebrow">What stays true</p>
+            <h2>Every remix inherits this</h2>
           </div>
         </div>
         <ol>
@@ -160,10 +165,10 @@ export default async function WorldPage({
         <div className="discovery-section-heading">
           <div>
             <p className="eyebrow">Community remixes</p>
-            <h2>Paths growing from this world</h2>
+            <h2>Stories growing from this world</h2>
           </div>
           <span>
-            <GitBranch size={15} /> {data.world.remixCount} published
+            <GitBranch size={14} /> {data.world.remixCount} published
           </span>
         </div>
         {data.branches.length ? (
@@ -187,10 +192,11 @@ export default async function WorldPage({
           </div>
         ) : (
           <p className="social-empty">
-            No community branch has been published yet.
+            No community remix has been published yet.
           </p>
         )}
       </section>
+
       <footer className="content-trust-row">
         <span>
           Published revision {data.world.currentRevisionId.slice(0, 8)}
